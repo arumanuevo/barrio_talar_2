@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'title' => 'Talar del Lago 1',
+    'title' => 'Talar del Lago 2',
     'title_prefix' => '',
     'title_postfix' => '',
 
@@ -63,7 +63,7 @@ return [
     |
     */
 
-    'logo' => '<b>Barrio</b> TDL1',
+    'logo' => '<b>Barrio</b> TDL2',
     'logo_img' => 'images/Logo Talar del Lago 1.svg',
     'logo_img_class' => 'brand-image img-circle elevation-3',
     'logo_img_xl' => null,
@@ -324,6 +324,12 @@ return [
             'can' => 'administrador',
         ],
         [
+            'text' => 'Medicion Provisoria',
+            'url' => 'mediciones-provisorias',
+            'icon' => 'fas fa-pencil-ruler',
+            'can' => ['administrador', 'inspector'],
+        ],
+        [
             'text' => 'Tomar Medicion',
             'url' => 'Medir',
             'icon' => 'fas fa-pencil-ruler',
@@ -371,6 +377,11 @@ return [
                 [
                     'text' => 'Mediciones',
                     'url' => 'getTodasMedVista',
+                    'can' => ['administrador', 'inspector'],
+                ],
+                [
+                    'text' => 'Mediciones Provisorias',
+                    'url' => 'mediciones-provisorias/listado',
                     'can' => ['administrador', 'inspector'],
                 ],
                 [

@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\VerificarFotosController;
 use App\Http\Controllers\MedidorController;
 use App\Http\Controllers\ConsumoController;
+use App\Http\Controllers\UsuarioParaLoginController;
+use App\Http\Controllers\MedicionProvisoriaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -92,7 +94,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('detectar.anomalias')
         ->middleware('auth');
 
-   
+    Route::get('/mediciones-provisorias', [MedicionProvisoriaController::class, 'index'])->name('mediciones_provisorias.index');
+    Route::post('/mediciones-provisorias', [MedicionProvisoriaController::class, 'store'])->name('mediciones_provisorias.store');
     
     
     
@@ -104,6 +107,11 @@ Route::post('/subir-foto-medicion', 'App\Http\Controllers\ImagenController@subir
     Route::get('/lotes-faltantes', [ConsumoController::class, 'obtenerLotesFaltantes'])
     ->name('lotes.faltantes');
 
+    Route::get('/obtener-medidor/{lote}', [MedicionProvisoriaController::class, 'obtenerMedidor'])->name('obtener.medidor');
+    Route::get('/importar-usuarios', [UsuarioParaLoginController::class, 'showUploadForm'])->name('usuarios_para_login.upload');
+    Route::post('/importar-usuarios/procesar', [UsuarioParaLoginController::class, 'processCSV'])->name('usuarios_para_login.process_csv');
 
+    Route::post('/importar-usuarios/vista-previa', [UsuarioParaLoginController::class, 'previewCSV'])->name('usuarios_para_login.preview_csv');
 
-
+    Route::get('/migrar-usuarios', [UsuarioParaLoginController::class, 'migrateToUsers'])->name('usuarios_para_login.migrate_to_users');
+    Route::get('/mediciones-provisorias/listado', [MedicionProvisoriaController::class, 'indexListado'])->name('mediciones_provisorias.listado');
