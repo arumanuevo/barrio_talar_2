@@ -156,6 +156,10 @@
                                             <span class="control-label">Tomar Foto</span>
                                             <i class="material-icons">camera_alt</i>
                                         </a>
+                                        <a href="#" id="download-photo" title="Descargar Foto" class="control-wrapper d-none">
+                                            <span class="control-label">Descargar Foto</span>
+                                            <i class="material-icons">file_download</i>
+                                        </a>
                                         <a href="#" id="resume-camera" title="Reanudar Cámara" class="control-wrapper d-none">
                                             <span class="control-label">Reanudar Cámara</span>
                                             <i class="material-icons">autorenew</i>
@@ -201,8 +205,18 @@
             const video = document.getElementById('webcam');
             const canvas = document.getElementById('canvas');
             const mostrarSoloSinMedicionCheckbox = document.getElementById('mostrarSoloSinMedicion');
+            const downloadPhotoLink = document.getElementById('download-photo');
             let stream;
             let selectLotes;
+            let currentPhotoData = null;
+            let currentPhotoName = null;
+
+            // Función para ordenamiento natural
+            function naturalSort(a, b) {
+                const aNum = parseInt(a.text.replace(/[^\d]/g, ''));
+                const bNum = parseInt(b.text.replace(/[^\d]/g, ''));
+                return aNum - bNum;
+            }
 
             // Guardar las opciones originales
             const originalOptions = Array.from(selectElement.options).map(option => {
@@ -230,6 +244,7 @@
 
                 selectLotes = new SlimSelect({
                     select: '#selectorLotes',
+                    sort: naturalSort,
                     placeholder: 'Seleccione un lote',
                     allowDeselect: true,
                     data: options
@@ -337,16 +352,29 @@
                 canvas.height = video.videoHeight;
                 let ctx = canvas.getContext('2d');
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                let picture = canvas.toDataURL('image/png');
+                currentPhotoData = canvas.toDataURL('image/png');
 
                 // Generar el nombre de la foto
                 let codLote = document.getElementById('selectorLotes').value;
                 let fechaToma = document.getElementById('fecha_medicion').value;
                 let fechaFormateada = fechaToma.replace(/-/g, '');
-                let nombreFoto = `talar2_${codLote}_${fechaFormateada}.png`;
+                currentPhotoName = `talar2_${codLote}_${fechaFormateada}.png`;
 
-                document.getElementById('foto').value = picture;
+                document.getElementById('foto').value = currentPhotoData;
                 afterTakePhoto();
+            });
+
+            // Función para descargar la foto
+            downloadPhotoLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentPhotoData) {
+                    const link = document.createElement('a');
+                    link.href = currentPhotoData;
+                    link.download = currentPhotoName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
             });
 
             // Función que se llama antes de capturar la foto (animación, ocultar controles, etc.)
@@ -367,6 +395,7 @@
                 $('#canvas').removeClass('d-none');
                 $('#take-photo').addClass('d-none');
                 $('#exit-app').removeClass('d-none');
+                $('#download-photo').removeClass('d-none');
                 $('#resume-camera').removeClass('d-none');
                 $('#cameraControls').removeClass('d-none');
             }
@@ -384,6 +413,7 @@
                 $('#cameraControls').removeClass('d-none');
                 $('#take-photo').removeClass('d-none');
                 $('#exit-app').addClass('d-none');
+                $('#download-photo').addClass('d-none');
                 $('#resume-camera').addClass('d-none');
             }
 
@@ -392,6 +422,7 @@
                 $('#canvas').addClass('d-none');
                 $('#take-photo').removeClass('d-none');
                 $('#exit-app').addClass('d-none');
+                $('#download-photo').addClass('d-none');
                 $('#resume-camera').addClass('d-none');
                 video.play();
             });
