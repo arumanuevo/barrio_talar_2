@@ -1,9 +1,9 @@
 
 [
 	{
-		"dnsApi": "http://127.0.0.1:8000/",
-        "dnsApiAuth": "http://127.0.0.1:8000/api/",
-        "dnsFotos" : "http://127.0.0.1:8000/public/images/",
+		"dnsApi": "https://talar2.arumasoft.com/",
+        "dnsApiAuth": "https://talar2.arumasoft.com/api/",
+        "dnsFotos" : "https://talar2.arumasoft.com/public/images/",
         "access_token" : "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiMTIyNmFiNjA5YjZmYWE4ZmZlYjY3YTMxZmI5NGIwYzM4MTA5ZGYwY2FlMGI1ZDVhMTNlYzA1YjAzNzFmZmM5ZmIwNDllODBlMTljY2Q2ZjkiLCJpYXQiOjE3MDI1NjMyOTUuNTQyMjUyLCJuYmYiOjE3MDI1NjMyOTUuNTQyMjU2LCJleHAiOjE3MzQxODU2OTUuNTM1ODM3LCJzdWIiOiI4Iiwic2NvcGVzIjpbXX0.HkZ0iQcZ9FzGBocA4UmNPK6pcf7pTngfn7SB78ALzJdooL3U3wAwV4JIWxcYFGmFp6VJNYARwz0elcwVJtbrYObxlSRVh_UxhYTZtqItJPiXHlkQ_cs5f8DghTVlFgE3PnsTS_gJE520Ca1fJHn67vfrsQbl39tpyCJewAzM-eO4Yb9_LQ9geiNEc0rpvudl6Wc-aCnt2OgyevNbUhFbbb4JvEUIi2RqNNW31ccY9JOLeoUHh7kO_FEDhLdJAdymGWzN2o1ff7b74iw9FD7k7SSlHpPemei_jtDqBDBDnmEF61yr_FMMH_jWwFPTpVMzsueP-OUHwmfK9zbrlLztUer09K2lPMFbzCAbQrCB1KUCwDh4Nqt12tjJvGg-ZIqzS_KtlXu4VU47mTQe6xvl1JnOC4XOFUZLt7SLQiZ6YCmAvsvr3NbZoPc4sTBg8ATj5pz3-OjSrrt3zFZkeY23cD0TWTYkFcZ-M2nHFwOizmnbHA_xAtfNAu29KHDYFyS7duPxaydTBUpKakXqrDK1wUmbxeb-srjL5gMA2SnpWXBJX6QhPS3qoRdstg0qcJmRbphZj9YPpdVRbsvwPMnLIqqkvrrb58S8wwVWStTmMEhjMfmOhOG-3OdAzmRgCydhoWF7Y8fj0g_nDI6D6umb5qxwWoweew7JmYZEoQQffO0",       
         "endPoints":{
             "postMedicion" : "postMedicion",
