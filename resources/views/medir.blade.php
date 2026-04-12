@@ -115,7 +115,7 @@
                 </div>
                 <div class="form-group">
                     <label>Toma Anterior</label>
-                    <input type="number" min="0" step="0.01" disabled name="tomaAnterior" id="tomaAnterior" class="form-control" placeholder="N/A" required="">
+                    <input type="number" min="0"  disabled name="tomaAnterior" id="tomaAnterior" class="form-control" placeholder="N/A" required="">
                 </div>
                 <div class="form-group">
                     <label>Fecha Actual de Toma</label>
@@ -130,7 +130,7 @@
             
                 <div class="form-group">
                     <label>Valor Medido</label>
-                    <input type="number" step="0.01" min="0" name="valorMedido" id="valorMedido" class="form-control" placeholder="N/A" required="">
+                    <input type="number" min="0" name="valorMedido" id="valorMedido" class="form-control" placeholder="N/A" required="">
                 </div>
             
                 <div class="form-group">
@@ -157,22 +157,22 @@
                     
                 </div>-->
                 <div class="row">
-                    <div class="col">
-                        <label>Foto</label>
-                        <div class="input-group">
-                            <input type="text" name="foto" id="foto" class="form-control" value="N/A" placeholder="N/A" required="">
-                            <button type="button" id="btnSubirFoto" class="btn btn-success" disabled>
-                                <i class="bi bi-cloud-arrow-up"></i> Subir Foto
-                            </button>
-                        </div>
-                        <br>
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input" id="sinFoto">
-                            <label class="form-check-label" for="sinFoto">No incluir foto</label>
-                        </div>
-                        <div id="uploadStatus" class="mt-2"></div>
-                    </div>
-                </div>
+        <div class="col">
+            <label>Foto</label>
+            <div class="input-group">
+                <input type="text" name="foto" id="foto" class="form-control" value="N/A" placeholder="N/A" required="">
+                <button type="button" id="btnSubirFoto" class="btn btn-success" disabled>
+                    <i class="bi bi-cloud-arrow-up"></i> Subir Foto
+                </button>
+            </div>
+            <br>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="sinFoto">
+                <label class="form-check-label" for="sinFoto">No incluir foto</label>
+            </div>
+            <div id="uploadStatus" class="mt-2"></div>
+        </div>
+    </div>
                 <br>
                 <div class="form-group">
                     <button type="button" id= "btnActivarCamara" disabled class="btn btn-primary d-flex justify-content-center col-md-12"><i style="height:0px;padding:0px 10px 10px 10px;margin-top:-4px;" class="bi bi-camera"></i>Activar Camara</button>                                 
@@ -245,25 +245,23 @@
 
     
 </div>
-<!-- Modal personalizado -->
-<div class="modal fade" id="modalExito" tabindex="-1" aria-labelledby="confirmModalLabel" >
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="confirmModalLabel">Aviso Importante</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    Transaccion exitosa! El almacenamiento se realizó.
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
-                    
-                </div>
+<!-- Modal de éxito personalizado -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel">Éxito</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                La medición se almacenó con éxito.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" data-bs-dismiss="modal" id="btnReloadPage">Aceptar</button>
             </div>
         </div>
+    </div>
 </div>
-
 
 @endsection
 @vite([ 'resources/js/app.js'])
@@ -278,7 +276,7 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <!--<script type="text/javascript" src="https://unpkg.com/webcam-easy/dist/webcam-easy.min.js"></script>-->
-    <!--<script src="https://unpkg.com/slim-select@latest/dist/slimselect.min.js"></script>-->
+        <!--<script src="https://unpkg.com/slim-select@latest/dist/slimselect.min.js"></script>-->
     <script src="https://unpkg.com/slim-select@latest/dist/slimselect.js"></script>
     <script type="text/javascript"> 
         //window.objMedidor.display();
@@ -315,6 +313,10 @@
                 // Realiza cualquier acción adicional aquí
             });
 
+            // Para todos los inputs de tipo number (opcional)
+            $('input[type="number"]').on('wheel', function(e) {
+                e.preventDefault();
+            });
            // Función para subir la foto al servidor
             function subirFotoAlServidor() {
                 const fotoInput = document.getElementById('foto');
@@ -572,7 +574,7 @@
                 //seccion = seccion.replace(/\s/g, '_').replace(/\./g, '_');
                 let fechaToma = $("#fechaToma").val();
                 let diaCorregido = formatDate2(fechaToma, 'es');
-                $("#foto").val('talar1_'+codLote + '_' + diaCorregido + '.png');
+                $("#foto").val('talar2_'+codLote + '_' + diaCorregido + '.png');
             }
            
         });

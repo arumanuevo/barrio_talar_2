@@ -25,7 +25,6 @@ class MedidorController extends Controller
             ->select('id', 'lote', 'numero_medidor', 'password')
             ->orderBy('lote')
             ->get();
-
         return view('medidores.index', compact('medidores'));
     }
 

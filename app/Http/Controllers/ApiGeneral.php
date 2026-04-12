@@ -141,74 +141,140 @@ class ApiGeneral extends Controller
      
     }
 
-    public function postMed(Request $request){
-      
-      //$seccion = $request->seccion;
-      $lote = $request->input('lote');
-      $medidor = $request->input('medidor');
-      $periodo = $request->input('periodo');
-      $fechaAnt = $request->input('fechaAnt');
-      $tomaAnterior = $request->input('tomaAnterior');
-      $vencimiento = $request->input('vencimiento');
-      $fechaMedicion = $request->input('fechaMedicion');
-      $valorMedido = $request->input('valorMedido');
-      $inspector = $request->input('inspector');
-      $foto = $request->input('foto');
-     // dd($lote);
-      $indice = Medicion::where('lote', $request->lote)
-                        ->count();
-      $tomaActual = $request->valorMedido;
-      //dd($request->seccion);
-      if($indice > 0){ //si ya existe una medicion
-     
-        $ultimaToma = Medicion::where('lote', $request->lote)
-                                ->orderBy('indice','desc')->firstOrFail();
-        $medidaAnt = $ultimaToma->valormedido;
-        $consumo =  (float)$tomaActual - (float)$medidaAnt;
-      }else{
-       // primera medicion
-        $medidaAnt = $request->tomaAnterior;   
-        $consumo = 0;    
-      }
-      //$consumo =  (float)$tomaActual - (float)$medidaAnt;
-  
-      $indice++;
-   
-     /* Medicion::create([
-        'lote' => $request->lote,
-        'medidor' => $request->medidor,
-        'periodo' => $request->periodo,
-        'indice' => $indice,
-        'fecha' => $request->fechaMedicion,
-        'vencimiento' => $request->vencimiento,
-        'tomaant' => $request->fechaAnt,
-        'medidaant' => $medidaAnt,
-        'valormedido' => $request->valorMedido,
-        'consumo' =>$consumo,
-        'inspector' => $request->inspector,
-        'foto' => $request->foto,
-      ]);*/
-
-      Medicion::create([
-        'lote' => $lote,
-        'medidor' => $medidor,
-        'periodo' => $periodo,
-        'indice' => $indice,
-        'fecha' => $fechaMedicion,
-        'vencimiento' => $vencimiento,
-        'tomaant' => $fechaAnt,
-        'medidaant' => $medidaAnt,
-        'valormedido' => $valorMedido,
-        'consumo' =>$consumo,
-        'inspector' => $inspector,
-        'foto' => $foto,
-      ]);
-     
-      $respuesta = response()->json(array('msg'=> 'exito'), 200);
-      return $respuesta; 
-      // return $lote;
+    public function postMed(Request $request)
+    {
+        // Log inicial de la solicitud completa
+        \Log::info('postMed - Solicitud recibida', [
+            'request_all' => $request->all(),
+            'request_input' => $request->input(),
+            'request_json' => $request->json()->all()
+        ]);
+    
+        try {
+            // Validar que los datos requeridos estén presentes
+            \Log::info('postMed - Validando datos de entrada');
+            $validated = $request->validate([
+                'lote' => 'required|string',
+                'medidor' => 'required|string',
+                'periodo' => 'required|integer',
+                'fechaMedicion' => 'required|date',
+                'vencimiento' => 'required|date',
+                'valorMedido' => 'required|numeric',
+                'inspector' => 'required|string',
+                'foto' => 'nullable|string'
+            ]);
+            \Log::info('postMed - Validación exitosa', ['validated' => $validated]);
+    
+            $lote = $request->input('lote');
+            $medidor = $request->input('medidor');
+            $periodo = $request->input('periodo');
+            $fechaAnt = $request->input('fechaAnt', null);
+            $tomaAnterior = $request->input('tomaAnterior', null);
+            $vencimiento = $request->input('vencimiento');
+            $fechaMedicion = $request->input('fechaMedicion');
+            $valorMedido = $request->input('valorMedido');
+            $inspector = $request->input('inspector');
+            $foto = $request->input('foto', 'Sin Foto');
+    
+            \Log::info('postMed - Datos extraídos', [
+                'lote' => $lote,
+                'medidor' => $medidor,
+                'periodo' => $periodo,
+                'fechaAnt' => $fechaAnt,
+                'tomaAnterior' => $tomaAnterior,
+                'vencimiento' => $vencimiento,
+                'fechaMedicion' => $fechaMedicion,
+                'valorMedido' => $valorMedido,
+                'inspector' => $inspector,
+                'foto' => $foto
+            ]);
+    
+            // Obtener el índice de la última medición para este lote
+            \Log::info('postMed - Obteniendo índice de mediciones para lote', ['lote' => $lote]);
+            $indice = Medicion::where('lote', $lote)->count();
+            \Log::info('postMed - Índice obtenido', ['indice' => $indice]);
+    
+            $tomaActual = (float)$valorMedido;
+            $medidaAnt = 0;
+            $consumo = 0;
+    
+            if($indice > 0) {
+                \Log::info('postMed - Buscando última medición para lote', ['lote' => $lote]);
+                $ultimaToma = Medicion::where('lote', $lote)
+                                        ->orderBy('indice', 'desc')
+                                        ->firstOrFail();
+                $medidaAnt = (float)$ultimaToma->valormedido;
+                $consumo = $tomaActual - $medidaAnt;
+                \Log::info('postMed - Cálculo de consumo para medición existente', [
+                    'medidaAnt' => $medidaAnt,
+                    'tomaActual' => $tomaActual,
+                    'consumo' => $consumo
+                ]);
+            } else {
+                \Log::info('postMed - Primera medición para este lote');
+                $medidaAnt = $tomaAnterior ? (float)$tomaAnterior : 0;
+                $consumo = 0;
+                \Log::info('postMed - Cálculo de consumo para primera medición', [
+                    'medidaAnt' => $medidaAnt,
+                    'tomaActual' => $tomaActual,
+                    'consumo' => $consumo
+                ]);
+            }
+    
+            $indice++;
+    
+            \Log::info('postMed - Creando nueva medición en base de datos', [
+                'lote' => $lote,
+                'medidor' => $medidor,
+                'periodo' => $periodo,
+                'indice' => $indice,
+                'fecha' => $fechaMedicion,
+                'vencimiento' => $vencimiento,
+                'tomaant' => $fechaAnt,
+                'medidaant' => $medidaAnt,
+                'valormedido' => $valorMedido,
+                'consumo' => $consumo,
+                'inspector' => $inspector,
+                'foto' => $foto
+            ]);
+    
+            // Crear la medición en la base de datos
+            $medicion = Medicion::create([
+                'lote' => $lote,
+                'medidor' => $medidor,
+                'periodo' => $periodo,
+                'indice' => $indice,
+                'fecha' => $fechaMedicion,
+                'vencimiento' => $vencimiento,
+                'tomaant' => $fechaAnt,
+                'medidaant' => $medidaAnt,
+                'valormedido' => $valorMedido,
+                'consumo' => $consumo,
+                'inspector' => $inspector,
+                'foto' => $foto
+            ]);
+    
+            \Log::info('postMed - Medición creada exitosamente', ['medicion_id' => $medicion->id]);
+    
+            return response()->json([
+              'msg' => 'exito',
+              'medicion' => $medicion,
+              'success_message' => 'La medición se guardó correctamente'
+          ], 200);
+    
+        } catch (\Exception $e) {
+            \Log::error('postMed - Error al procesar la medición', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+    
+            return response()->json([
+                'msg' => 'error',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-
     public function getGuardarFacturas(Request $request)      
     {
       $facturas = $request->datos;

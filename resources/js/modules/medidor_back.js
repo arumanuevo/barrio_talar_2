@@ -40,65 +40,89 @@ var objMedidor = {
                // $( "#foto" ).val('Sin foto');
             });
 
-            $(document).on('click', '#btnGuardarMedicion', function(event) {
-            
-              
-                let valorMedido = parseFloat($('#valorMedido').val());
-                let tomaAnterior = parseFloat($('#tomaAnterior').val());
-                if (valorMedido < tomaAnterior) {
-                    alert('El Valor Medido debe ser mayor que la Toma Anterior.');
-                    return false;
-                };
-                let dns = data.default[0].dnsApiAuth;
-                let endPoint = data.default[0].endPoints.postMed;
-                let urlConsulta = dns + endPoint;
-                let token = data.default[0].access_token;
-               
-                let resultado = formMedida(); //para el get
-                
-                let jsonResultado = JSON.stringify(resultado); //para el post
- 
-                consultando(true);
-                console.log(resultado);
-                if (resultado == 'ERROR'){consultando(false); return };
-                
-               // return;
-                $.ajax({
-                    headers: {
-                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
-                        'Content-Type' : 'application/json',
-                        'X-Requested-With' : 'XMLHttpRequest',
-                        'Authorization' : token
-                    },
-                    type: "POST",
-                    xhrFields: {
-                    withCredentials: false
-                    },
-                    url: urlConsulta,
-                    data:  jsonResultado, 
-                    success:function(datos){ 
-                        
-                         console.log('datos:  '.datos);
-                         consultando(false);
-                        // $("#ajaxform")[0].reset();
-                         var successModal = new bootstrap.Modal(document.getElementById('successModal'));
-    successModal.show();
+           // Evento para guardar la medición
+$(document).on('click', '#btnGuardarMedicion', function(event) {
+    console.log('sksksksksssssssssss');
+    let valorMedido = parseFloat($('#valorMedido').val());
+    let tomaAnterior = parseFloat($('#tomaAnterior').val());
 
-    // Configurar el botón "Aceptar" para recargar la página
-    document.getElementById('btnReloadPage').onclick = function() {
-        window.location.reload();
+    if (valorMedido < tomaAnterior) {
+        alert('El Valor Medido debe ser mayor que la Toma Anterior.');
+        return false;
     };
-                         //alert('La medicion se almaceno con exito!');
-                         //cartelAlerta('Transacción Exitosa!', 'Se realizó el almacenamiento de la medición');
-                       // const confirmModal = new bootstrap.Modal(document.getElementById('modalExito'), {});
-                       // confirmModal.show();
 
-                     },
-                     jsonp: true,
-                     jsonpCallback: 'getJson',
-                }); //fin ajax
+    // Obtener datos de configuración
+    let data = {
+        default: [{
+            dnsApiAuth: window.location.origin + '/api/',
+            endPoints: {
+                postMed: 'postMed'
+            },
+            access_token: $('#bearerToken').val()
+        }]
+    };
 
-            });//fin evento boton guardar medicion
+    let dns = data.default[0].dnsApiAuth;
+    let endPoint = data.default[0].endPoints.postMed;
+    let urlConsulta = dns + endPoint;
+    let token = data.default[0].access_token;
+
+    let resultado = formMedida();
+
+    if (resultado == 'ERROR') {
+        consultando(false);
+        return;
+    }
+
+    let jsonResultado = JSON.stringify(resultado);
+
+    consultando(true);
+    console.log('Datos a enviarddd:', resultado);
+
+    $.ajax({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Authorization': 'Bearer ' + token
+        },
+        type: "POST",
+        xhrFields: {
+            withCredentials: false
+        },
+        url: urlConsulta,
+        data: jsonResultado,
+        success: function(datos) {
+            console.log('Respuesta del servidordddd:', datos);
+            consultando(false);
+
+            // Mostrar mensaje de éxito en el div
+            if (datos.msg === 'exito') {
+                var message = datos.success_message || 'La medición se guardó correctamente';
+                $('#successMessageText').text(message);
+                $('#successMessage').removeClass('d-none');
+
+                // Ocultar el mensaje después de 5 segundos
+                setTimeout(function() {
+                    $('#successMessage').addClass('d-none');
+                }, 5000);
+
+                // Recargar la página después de 2 segundos
+                setTimeout(function() {
+                    window.location.reload();
+                }, 2000);
+            }
+        },
+        error: function(xhr, status, error) {
+            consultando(false);
+            console.error('Error al guardar:', error);
+            alert('Error al guardar la medición. Por favor, intente nuevamente.');
+        },
+        jsonp: true,
+        jsonpCallback: 'getJson'
+    });
+});
+
 
             $(document).on('change', '#fechaToma', function() {
                 let vencimiento = calcularVencimiento();
@@ -190,7 +214,7 @@ var objMedidor = {
                                // $( "#tomaAnterior" ).val( 'N/A' );
                                 let vencimiento = calcularVencimiento();
                                 $( "#vencimiento" ).val(vencimiento);
-                               // $('#alertaRoja').alert('close');
+                                $('#alertaRoja').alert('close');
                                 todayFecha();
                             }
                            

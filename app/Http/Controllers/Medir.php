@@ -26,7 +26,7 @@ class Medir extends Controller
                 preg_match('/(\d+)/', $model->lote, $matches);
                 return $matches ? (int)$matches[0] : 0;
             });
-
+            
         return view('medir')->with(compact('lotes', 'token'));
     }
 }

@@ -45,8 +45,9 @@ class GuardarMedicion extends Controller
             'foto' => 'path a foto',]
             ]
         );
-     
+    
         $medida->save();*/
+    
        Medicion::create([
          'lote' => $request->lote,
          'medidor' => $request->medidor,
