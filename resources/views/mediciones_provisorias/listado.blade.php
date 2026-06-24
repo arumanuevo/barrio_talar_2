@@ -1,3 +1,11 @@
+@extends('adminlte::page')
+
+@section('title', 'Listado de Mediciones Provisorias')
+
+@section('content_header')
+    <h1>Listado de Mediciones Provisorias</h1>
+@stop
+
 @section('content')
     <div class="container-fluid">
         <div class="row">
@@ -30,10 +38,10 @@
                                             <td>
                                                 @if($medicion->foto && $medicion->foto != 'N/A')
                                                     <a href="#" class="btn btn-sm btn-primary btn-ver-foto" 
-                                                       data-foto="{{ asset($medicion->foto) }}" 
+                                                       data-foto="{{ asset('images/' . basename($medicion->foto)) }}"
                                                        data-lote="{{ $medicion->lote }}"
                                                        data-toggle="modal" 
-                                                       data-target="#modalFoto">
+                                                       data-target="#modalFotoUnico">
                                                         <i class="fas fa-eye"></i> Ver foto
                                                     </a>
                                                 @else
@@ -51,8 +59,8 @@
         </div>
     </div>
 
-    <!-- Modal único para todas las fotos -->
-    <div class="modal fade" id="modalFoto" tabindex="-1" role="dialog" aria-labelledby="modalFotoLabel" aria-hidden="true">
+    <!-- Modal ÚNICO para todas las fotos (se carga solo cuando se abre) -->
+    <div class="modal fade" id="modalFotoUnico" tabindex="-1" role="dialog" aria-labelledby="modalFotoLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
                 <div class="modal-header">
@@ -62,7 +70,7 @@
                     </button>
                 </div>
                 <div class="modal-body text-center">
-                    <img id="fotoModalImg" src="" alt="Foto de medición" style="max-width: 100%;">
+                    <img id="fotoModalImagen" src="" alt="Foto de medición" style="max-width: 100%;">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
@@ -70,6 +78,11 @@
             </div>
         </div>
     </div>
+@stop
+
+@section('css')
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 @stop
 
 @section('js')
@@ -85,17 +98,17 @@
                 }
             });
 
-            // Al hacer clic en el botón, cargar la imagen en el modal
+            // Cuando se hace clic en "Ver foto", se carga la imagen en el modal único
             $('.btn-ver-foto').on('click', function() {
                 var fotoUrl = $(this).data('foto');
                 var lote = $(this).data('lote');
-                $('#fotoModalImg').attr('src', fotoUrl);
+                $('#fotoModalImagen').attr('src', fotoUrl);
                 $('#modalFotoLabel').text('Foto de Medición - Lote ' + lote);
             });
 
-            // Limpiar la imagen al cerrar el modal para liberar memoria
-            $('#modalFoto').on('hidden.bs.modal', function() {
-                $('#fotoModalImg').attr('src', '');
+            // Limpiar la imagen al cerrar el modal (libera memoria)
+            $('#modalFotoUnico').on('hidden.bs.modal', function() {
+                $('#fotoModalImagen').attr('src', '');
             });
         });
     </script>
