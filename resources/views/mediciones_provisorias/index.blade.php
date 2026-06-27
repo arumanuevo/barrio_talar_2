@@ -247,7 +247,25 @@
                     sort: naturalSort,
                     placeholder: 'Seleccione un lote',
                     allowDeselect: true,
-                    data: options
+                    data: options,
+                    // Evento afterChange para cargar el medidor cuando se selecciona un lote
+                    afterChange: function(newVal) {
+                        const selectedValue = newVal[0];
+                        if (selectedValue) {
+                            axios.get(`/obtener-medidor/${selectedValue}`)
+                                .then(response => {
+                                    const medidor = response.data.medidor;
+                                    document.getElementById('medidor').value = medidor;
+                                    console.log('Medidor cargado:', medidor);
+                                })
+                                .catch(error => {
+                                    console.error('Error al obtener el medidor:', error);
+                                    document.getElementById('medidor').value = '';
+                                });
+                        } else {
+                            document.getElementById('medidor').value = '';
+                        }
+                    }
                 });
             }
 
@@ -258,26 +276,6 @@
             mostrarSoloSinMedicionCheckbox.addEventListener('change', function() {
                 initSlimSelect();
             });
-
-            // Escuchar el evento change en el elemento select
-// Escuchar el evento change en el elemento select
-selectElement.addEventListener('change', function() {
-    const selectedValue = this.value;
-    if (selectedValue) {
-        axios.get(`/obtener-medidor/${selectedValue}`)
-            .then(response => {
-                const medidor = response.data.medidor;
-                document.getElementById('medidor').value = medidor;
-                console.log('Medidor cargado:', medidor);
-            })
-            .catch(error => {
-                console.error('Error al obtener el medidor:', error);
-                document.getElementById('medidor').value = '';
-            });
-    } else {
-        document.getElementById('medidor').value = '';
-    }
-});
 
             // Activar cámara al hacer click en el botón
             document.getElementById('btnActivarCamara').addEventListener('click', function() {
