@@ -198,11 +198,12 @@
     <script src="//unpkg.com/alpinejs" defer></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="https://unpkg.com/slim-select@latest/dist/slimselect.js"></script>
+    <!--<script src="https://unpkg.com/slim-select@latest/dist/slimselect.js"></script>-->
+    <script src="https://unpkg.com/slim-select@1.27.1/dist/slimselect.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const selectElement = document.getElementById('selectorLotes');
-            console.log('skaksks');
+            console.log(selectElement);
             const video = document.getElementById('webcam');
             const canvas = document.getElementById('canvas');
             const mostrarSoloSinMedicionCheckbox = document.getElementById('mostrarSoloSinMedicion');
