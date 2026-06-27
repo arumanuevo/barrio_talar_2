@@ -202,6 +202,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const selectElement = document.getElementById('selectorLotes');
+            console.log(selectElement);
             const video = document.getElementById('webcam');
             const canvas = document.getElementById('canvas');
             const mostrarSoloSinMedicionCheckbox = document.getElementById('mostrarSoloSinMedicion');
