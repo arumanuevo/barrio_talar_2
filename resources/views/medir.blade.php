@@ -277,7 +277,7 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <!--<script type="text/javascript" src="https://unpkg.com/webcam-easy/dist/webcam-easy.min.js"></script>-->
         <!--<script src="https://unpkg.com/slim-select@latest/dist/slimselect.min.js"></script>-->
-    <script src="https://unpkg.com/slim-select@latest/dist/slimselect.js"></script>
+        <script src="https://unpkg.com/slim-select@1.27.1/dist/slimselect.js"></script>
     <script type="text/javascript"> 
         //window.objMedidor.display();
        // window.objCamara.display();
