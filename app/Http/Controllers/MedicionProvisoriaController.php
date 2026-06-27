@@ -75,16 +75,16 @@ public function guardarFotoProvisoria($imageData, $lote, $fechaMedicion)
     return $path;
 }
 
-    public function obtenerMedidor($lote)
-    {
-        $user = User::where('lote', $lote)->first();
+public function obtenerMedidor($lote)
+{
+    $user = User::where('lote', $lote)->first();
 
-        if ($user) {
-            return response()->json(['medidor' => $user->medidor]);
-        } else {
-            return response()->json(['medidor' => ''], 404);
-        }
+    if ($user) {
+        return response()->json(['medidor' => $user->medidor]);
+    } else {
+        return response()->json(['medidor' => ''], 404);
     }
+}
 
     public function indexListado()
     {

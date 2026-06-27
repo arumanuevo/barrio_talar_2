@@ -260,11 +260,11 @@
             });
 
             // Escuchar el evento change en el elemento select
-           // Escuchar el evento change en el elemento select
+// Escuchar el evento change en el elemento select
 selectElement.addEventListener('change', function() {
     const selectedValue = this.value;
     if (selectedValue) {
-        axios.get(`{{ route('obtener.medidor') }}/${selectedValue}`)
+        axios.get(`/obtener-medidor/${selectedValue}`)
             .then(response => {
                 const medidor = response.data.medidor;
                 document.getElementById('medidor').value = medidor;
