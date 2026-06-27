@@ -229,6 +229,24 @@
                 };
             });
 
+            // Función para cargar el medidor
+            function cargarMedidor(valor) {
+                if (valor) {
+                    axios.get(`/obtener-medidor/${valor}`)
+                        .then(response => {
+                            const medidor = response.data.medidor;
+                            document.getElementById('medidor').value = medidor;
+                            console.log('Medidor cargado:', medidor);
+                        })
+                        .catch(error => {
+                            console.error('Error al obtener el medidor:', error);
+                            document.getElementById('medidor').value = '';
+                        });
+                } else {
+                    document.getElementById('medidor').value = '';
+                }
+            }
+
             // Función para inicializar SlimSelect con las opciones filtradas
             function initSlimSelect() {
                 const options = originalOptions.filter(option => {
@@ -247,25 +265,15 @@
                     sort: naturalSort,
                     placeholder: 'Seleccione un lote',
                     allowDeselect: true,
-                    data: options,
-                    // Evento afterChange para cargar el medidor cuando se selecciona un lote
-                    afterChange: function(newVal) {
-                        const selectedValue = newVal[0];
-                        if (selectedValue) {
-                            axios.get(`/obtener-medidor/${selectedValue}`)
-                                .then(response => {
-                                    const medidor = response.data.medidor;
-                                    document.getElementById('medidor').value = medidor;
-                                    console.log('Medidor cargado:', medidor);
-                                })
-                                .catch(error => {
-                                    console.error('Error al obtener el medidor:', error);
-                                    document.getElementById('medidor').value = '';
-                                });
-                        } else {
-                            document.getElementById('medidor').value = '';
-                        }
-                    }
+                    data: options
+                });
+
+                // Escuchar el evento personalizado de SlimSelect
+                const selectElement = document.getElementById('selectorLotes');
+                selectElement.addEventListener('slim:change', function(e) {
+                    const selectedValue = this.value;
+                    console.log('Evento slim:change disparado, valor:', selectedValue);
+                    cargarMedidor(selectedValue);
                 });
             }
 
