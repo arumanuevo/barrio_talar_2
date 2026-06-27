@@ -291,12 +291,14 @@
         }
 
         // Inicializar SlimSelect con ordenamiento personalizado
-        new SlimSelect({
+        let t = new SlimSelect({
             select: '#selectorLotes',
             sort: naturalSort, // Usar nuestra función de ordenamiento personalizada
             placeholder: 'Ingrese Número Lote',
             allowDeselect: true
         });
+        console.log('--------');
+        console.log(t);
         $(document).ready(function() {
            
             let fechaMedicion = $( "#fechaToma" ).val();
