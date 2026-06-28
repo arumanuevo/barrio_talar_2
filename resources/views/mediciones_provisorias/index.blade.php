@@ -89,7 +89,7 @@
             top: 100%;
             left: 0;
             right: 0;
-            max-height: 250px;
+            max-height: 300px;
             overflow-y: auto;
             background: white;
             border: 1px solid #ced4da;
@@ -160,6 +160,25 @@
 
         .selected-lote-display.visible {
             display: block;
+        }
+
+        /* Scroll personalizado para la lista */
+        .suggestions-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .suggestions-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .suggestions-list::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        .suggestions-list::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
 
         /* Estilos para debugging */
@@ -453,12 +472,13 @@
             function buscarLotes(termino) {
                 const filtrados = getLotesFiltrados();
                 if (!termino || termino.trim() === '') {
-                    return filtrados.slice(0, 20);
+                    // SIN LÍMITE - mostrar todos los lotes
+                    return filtrados;
                 }
                 const busqueda = termino.toLowerCase().trim();
                 return filtrados.filter(lote => 
                     lote.lote.toLowerCase().includes(busqueda)
-                ).slice(0, 20);
+                );
             }
 
             function actualizarContador() {
@@ -533,6 +553,7 @@
                     return;
                 }
 
+                // Mostrar todos los resultados sin límite
                 resultados.forEach(lote => {
                     const item = document.createElement('div');
                     item.className = 'suggestion-item';
@@ -553,7 +574,7 @@
                     item.appendChild(badge);
                     
                     item.addEventListener('mousedown', function(e) {
-                        e.preventDefault(); // Prevenir que el input pierda foco
+                        e.preventDefault();
                         seleccionarLote(lote.lote);
                     });
                     
@@ -694,7 +715,7 @@
             });
 
             log('✅ Aplicación inicializada correctamente');
-            log('💡 Haz clic en el buscador para ver todos los lotes disponibles');
+            log('💡 Haz clic en el buscador para ver TODOS los lotes disponibles');
 
             // ============================================
             // CÓDIGO DE CÁMARA (MANTENIDO)
@@ -905,7 +926,7 @@
                     });
             });
 
-            log('🎯 Aplicación lista. Haz clic en el buscador para ver todos los lotes disponibles.');
+            log('🎯 Aplicación lista. Haz clic en el buscador para ver TODOS los lotes disponibles.');
         });
     </script>
 @stop
