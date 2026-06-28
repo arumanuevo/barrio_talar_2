@@ -34,7 +34,7 @@
             font-size: 0.9em;
         }
 
-        /* Estilos para el buscador con datalist */
+        /* Estilos para el buscador con lista personalizada */
         .searchable-select-wrapper {
             position: relative;
             width: 100%;
@@ -52,6 +52,7 @@
             border: 1px solid #ced4da;
             border-radius: 0.25rem;
             transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+            cursor: text;
         }
 
         .searchable-select-wrapper input[type="text"]:focus {
@@ -60,28 +61,49 @@
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
         }
 
-        .searchable-select-wrapper datalist {
+        /* Lista de sugerencias personalizada */
+        .suggestions-list {
             position: absolute;
-            background-color: white;
-            border: 1px solid #ced4da;
-            border-radius: 0.25rem;
-            max-height: 200px;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 300px;
             overflow-y: auto;
-            width: 100%;
+            background: white;
+            border: 1px solid #ced4da;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             z-index: 1000;
+            display: none;
         }
 
-        .searchable-select-wrapper datalist option {
-            padding: 0.375rem 0.75rem;
+        .suggestions-list.show {
+            display: block;
+        }
+
+        .suggestions-list .suggestion-item {
+            padding: 8px 12px;
             cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s;
         }
 
-        .searchable-select-wrapper datalist option:hover {
+        .suggestions-list .suggestion-item:hover {
             background-color: #0d6efd;
             color: white;
         }
 
-        .searchable-select-wrapper .selected-lote-display {
+        .suggestions-list .no-results {
+            padding: 12px;
+            text-align: center;
+            color: #6c757d;
+        }
+
+        .selected-lote-display {
             margin-top: 0.5rem;
             padding: 0.375rem 0.75rem;
             background-color: #e9ecef;
@@ -90,8 +112,27 @@
             display: none;
         }
 
-        .searchable-select-wrapper .selected-lote-display.visible {
+        .selected-lote-display.visible {
             display: block;
+        }
+
+        /* Scroll personalizado */
+        .suggestions-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .suggestions-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .suggestions-list::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        .suggestions-list::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
 
         /* Panel de Debug */
@@ -181,28 +222,21 @@
                         <form name="ajaxform" id="ajaxform">
                             <div class="form-group">
                                 <label>Seleccione Nº de Lote</label>
-                                <!-- Buscador con datalist -->
+                                <!-- Buscador con lista personalizada -->
                                 <div class="searchable-select-wrapper">
                                     <input type="text" 
                                            id="buscadorLotes" 
                                            class="form-control" 
-                                           placeholder="Escriba el número de lote para buscar..." 
-                                           autocomplete="off"
-                                           list="listaLotes">
-                                    <datalist id="listaLotes">
-                                        @foreach($lotes as $lote => $idLote)
-                                            @if($idLote->lote != '0')
-                                                <option value="{{ $idLote->lote }}">Lote {{ $idLote->lote }}</option>
-                                            @endif
-                                        @endforeach
-                                    </datalist>
+                                           placeholder="Escriba o haga clic para ver los lotes..." 
+                                           autocomplete="off">
+                                    <div id="suggestionsList" class="suggestions-list"></div>
                                     <div id="selectedLoteDisplay" class="selected-lote-display">
                                         <i class="bi bi-check-circle-fill text-success"></i>
                                         Lote seleccionado: <span id="selectedLoteText">-</span>
                                     </div>
                                     <input type="hidden" id="selectorLotes" name="lote" value="">
                                 </div>
-                                <small class="text-muted" id="loteStatus">Escriba un número de lote para buscar</small>
+                                <small class="text-muted" id="loteStatus">Escriba o haga clic para buscar un lote</small>
                             </div>
 
                             <div class="form-group">
@@ -390,13 +424,29 @@
                 log('Debug panel toggled');
             });
 
-            log('🚀 Iniciando aplicación de medición con buscador');
+            log('🚀 Iniciando aplicación de medición con buscador personalizado');
             log('📋 DOM completamente cargado');
+
+            // ============================================
+            // DATOS DE LOTES DESDE PHP
+            // ============================================
+            const lotesData = [
+                @foreach($lotes as $lote => $idLote)
+                    @if($idLote->lote != '0')
+                        {
+                            lote: "{{ $idLote->lote }}"
+                        },
+                    @endif
+                @endforeach
+            ];
+
+            log('📊 Datos de lotes cargados:', 'info', { total: lotesData.length });
 
             // ============================================
             // REFERENCIAS A ELEMENTOS
             // ============================================
             const buscadorInput = document.getElementById('buscadorLotes');
+            const suggestionsList = document.getElementById('suggestionsList');
             const hiddenSelect = document.getElementById('selectorLotes');
             const selectedLoteDisplay = document.getElementById('selectedLoteDisplay');
             const selectedLoteText = document.getElementById('selectedLoteText');
@@ -414,14 +464,27 @@
             const fotoInput = document.getElementById('foto');
             const btnSubirFoto = document.getElementById('btnSubirFoto');
             const sinFotoCheckbox = document.getElementById('sinFoto');
-            const datalist = document.getElementById('listaLotes');
 
             log('📌 Elementos encontrados:', {
                 buscador: !!buscadorInput,
-                hiddenSelect: !!hiddenSelect,
-                datalist: !!datalist,
-                opcionesDatalist: datalist ? datalist.options.length : 0
+                suggestionsList: !!suggestionsList,
+                hiddenSelect: !!hiddenSelect
             });
+
+            let suggestionsVisible = false;
+
+            // ============================================
+            // FUNCIONES DE BÚSQUEDA
+            // ============================================
+            function buscarLotes(termino) {
+                if (!termino || termino.trim() === '') {
+                    return lotesData.slice(0, 20);
+                }
+                const busqueda = termino.toLowerCase().trim();
+                return lotesData.filter(lote => 
+                    lote.lote.toLowerCase().includes(busqueda)
+                ).slice(0, 20);
+            }
 
             // ============================================
             // FUNCIÓN PARA OBTENER DATOS DEL LOTE
@@ -453,12 +516,10 @@
                     log('✅ Petición exitosa', 'success', response.data);
                     const data = response.data;
                     
-                    // Actualizar campos
                     codMedidorInput.value = data.medidor || 'N/A';
                     tomaAntInput.value = data.fecha_anterior || '';
                     tomaAnteriorInput.value = data.medidor_anterior || 0;
                     
-                    // Calcular vencimiento
                     if (fechaTomaInput.value && periodoInput.value) {
                         calcularVencimiento();
                     }
@@ -468,7 +529,6 @@
                     loteStatus.textContent = `✅ Lote ${valor} cargado`;
                     loteStatus.style.color = '#198754';
                     
-                    // Habilitar botones
                     btnActivarCamara.disabled = false;
                     btnGuardar.disabled = false;
                     
@@ -524,66 +584,134 @@
             }
 
             // ============================================
+            // RENDERIZAR SUGERENCIAS
+            // ============================================
+            function renderSuggestions(resultados) {
+                suggestionsList.innerHTML = '';
+                
+                if (resultados.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.className = 'no-results';
+                    noResults.textContent = 'No se encontraron lotes';
+                    suggestionsList.appendChild(noResults);
+                    suggestionsList.classList.add('show');
+                    return;
+                }
+
+                resultados.forEach(lote => {
+                    const item = document.createElement('div');
+                    item.className = 'suggestion-item';
+                    
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = `Lote ${lote.lote}`;
+                    item.appendChild(textSpan);
+                    
+                    item.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        seleccionarLote(lote.lote);
+                    });
+                    
+                    suggestionsList.appendChild(item);
+                });
+                
+                suggestionsList.classList.add('show');
+            }
+
+            // ============================================
+            // SELECCIONAR LOTE
+            // ============================================
+            function seleccionarLote(valor) {
+                log('📌 Seleccionando lote:', 'info', { valor });
+                
+                hiddenSelect.value = valor;
+                buscadorInput.value = valor;
+                selectedLoteText.textContent = valor;
+                selectedLoteDisplay.classList.add('visible');
+                loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
+                loteStatus.style.color = '#198754';
+                
+                suggestionsList.classList.remove('show');
+                suggestionsVisible = false;
+                
+                obtenerDatosLote(valor);
+            }
+
+            // ============================================
             // EVENTOS DEL BUSCADOR
             // ============================================
-            buscadorInput.addEventListener('input', function(e) {
-                const valor = this.value.trim();
-                log('🔎 Buscando lote:', 'info', { valor });
-                
-                // Buscar en el datalist si existe la opción
-                let encontrado = false;
-                for (let i = 0; i < datalist.options.length; i++) {
-                    if (datalist.options[i].value === valor) {
-                        encontrado = true;
-                        break;
-                    }
-                }
-                
-                if (encontrado && valor !== '') {
-                    // Seleccionar el lote
-                    hiddenSelect.value = valor;
-                    selectedLoteText.textContent = valor;
-                    selectedLoteDisplay.classList.add('visible');
-                    loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
-                    loteStatus.style.color = '#198754';
-                    
-                    log('📌 Lote seleccionado desde buscador:', 'success', { valor });
-                    obtenerDatosLote(valor);
-                } else if (valor === '') {
-                    // Limpiar selección
-                    hiddenSelect.value = '';
-                    selectedLoteDisplay.classList.remove('visible');
-                    limpiarCampos();
-                    loteStatus.textContent = 'Escriba un número de lote para buscar';
-                    loteStatus.style.color = '#6c757d';
-                } else {
-                    // Búsqueda en curso pero no coincidencia exacta
-                    loteStatus.textContent = `🔍 Buscando "${valor}"...`;
-                    loteStatus.style.color = '#ffc107';
+            
+            buscadorInput.addEventListener('click', function(e) {
+                log('🖱️ Click en buscador', 'info');
+                if (suggestionsVisible) return;
+                const resultados = buscarLotes('');
+                renderSuggestions(resultados);
+                suggestionsVisible = true;
+            });
+
+            buscadorInput.addEventListener('focus', function(e) {
+                log('🎯 Focus en buscador', 'info');
+                if (!suggestionsVisible && !this.value) {
+                    const resultados = buscarLotes('');
+                    renderSuggestions(resultados);
+                    suggestionsVisible = true;
                 }
             });
 
-            // También permitir selección desde el datalist con click
-            buscadorInput.addEventListener('change', function(e) {
-                const valor = this.value.trim();
-                if (valor) {
-                    // Verificar si existe en el datalist
-                    let existe = false;
-                    for (let i = 0; i < datalist.options.length; i++) {
-                        if (datalist.options[i].value === valor) {
-                            existe = true;
-                            break;
+            buscadorInput.addEventListener('input', function(e) {
+                const termino = this.value;
+                log('🔎 Buscando:', 'info', { termino });
+                
+                if (termino === '') {
+                    const resultados = buscarLotes('');
+                    renderSuggestions(resultados);
+                    suggestionsVisible = true;
+                    if (hiddenSelect.value) {
+                        hiddenSelect.value = '';
+                        selectedLoteDisplay.classList.remove('visible');
+                        limpiarCampos();
+                        loteStatus.textContent = 'Escriba o haga clic para buscar un lote';
+                        loteStatus.style.color = '#6c757d';
+                    }
+                    return;
+                }
+                
+                const resultados = buscarLotes(termino);
+                log('📊 Resultados encontrados:', 'info', { count: resultados.length });
+                
+                if (resultados.length > 0) {
+                    renderSuggestions(resultados);
+                    suggestionsVisible = true;
+                } else {
+                    renderSuggestions([]);
+                    suggestionsVisible = true;
+                }
+            });
+
+            // Cerrar sugerencias al hacer click fuera
+            document.addEventListener('click', function(e) {
+                const wrapper = document.querySelector('.searchable-select-wrapper');
+                if (!wrapper.contains(e.target)) {
+                    suggestionsList.classList.remove('show');
+                    suggestionsVisible = false;
+                }
+            });
+
+            // Seleccionar con Enter
+            buscadorInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const termino = this.value.trim();
+                    if (termino) {
+                        const resultados = buscarLotes(termino);
+                        if (resultados.length > 0) {
+                            seleccionarLote(resultados[0].lote);
                         }
                     }
-                    if (existe) {
-                        hiddenSelect.value = valor;
-                        selectedLoteText.textContent = valor;
-                        selectedLoteDisplay.classList.add('visible');
-                        loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
-                        loteStatus.style.color = '#198754';
-                        log('📌 Lote seleccionado por cambio:', 'success', { valor });
-                        obtenerDatosLote(valor);
-                    }
+                    e.preventDefault();
+                }
+                if (e.key === 'Escape') {
+                    suggestionsList.classList.remove('show');
+                    suggestionsVisible = false;
+                    this.blur();
                 }
             });
 
@@ -651,7 +779,6 @@
             // ============================================
             log('🔧 Inicializando aplicación...');
             
-            // Establecer fecha actual
             const hoy = new Date();
             const year = hoy.getFullYear();
             const month = String(hoy.getMonth() + 1).padStart(2, '0');
@@ -659,11 +786,10 @@
             fechaTomaInput.value = `${year}-${month}-${day}`;
             log('📅 Fecha actual establecida:', 'info', { fecha: fechaTomaInput.value });
 
-            // Calcular vencimiento inicial
             calcularVencimiento();
 
             log('✅ Aplicación inicializada correctamente');
-            log('💡 Escribe un número de lote en el buscador para comenzar');
+            log('💡 Haz clic en el buscador para ver los lotes disponibles');
 
             // ============================================
             // CÓDIGO DE CÁMARA (MANTENIDO)
@@ -673,7 +799,6 @@
             let stream;
             let currentPhotoData = null;
 
-            // Activar cámara
             btnActivarCamara.addEventListener('click', function() {
                 log('📷 Activando cámara', 'info');
                 $('.md-modal').addClass('md-show');
@@ -742,7 +867,6 @@
                 $("#webcam-control").addClass("d-none");
             }
 
-            // Tomar foto
             document.getElementById('take-photo').addEventListener('click', function() {
                 log('📸 Tomando foto', 'info');
                 beforeTakePhoto();
@@ -924,14 +1048,13 @@
                         message: error.message,
                         response: error.response?.data
                     });
-                    // Mostrar error en toast
                     $('#tituloToast').text('Error');
                     $('#subtituloToast').text(error.response?.data?.message || 'Error al guardar la medición');
                     $('#myToast').toast('show');
                 });
             });
 
-            log('🎯 Aplicación lista. Escribe un número de lote para buscar y seleccionar.');
+            log('🎯 Aplicación lista. Haz clic en el buscador para ver los lotes disponibles.');
         });
     </script>
 @stop
