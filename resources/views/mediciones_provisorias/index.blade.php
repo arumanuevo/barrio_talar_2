@@ -7,7 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
     <link href="{{ asset('css/css-loader.css') }}" rel="stylesheet">
-    <link href="https://unpkg.com/slim-select@latest/dist/slimselect.css" rel="stylesheet">
+    <!-- ELIMINAMOS slimselect CSS -->
     <style>
         .container {
             max-height: calc(100vh - 100px);
@@ -56,6 +56,56 @@
             font-weight: 500;
             margin-left: 10px;
         }
+
+        /* Estilos para el select nativo mejorado */
+        .custom-select-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .custom-select-wrapper select {
+            display: block;
+            width: 100%;
+            padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+            font-size: 1rem;
+            font-weight: 400;
+            line-height: 1.5;
+            color: #212529;
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+            appearance: auto;
+            -webkit-appearance: auto;
+            -moz-appearance: auto;
+            cursor: pointer;
+        }
+
+        .custom-select-wrapper select:focus {
+            border-color: #86b7fe;
+            outline: 0;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .custom-select-wrapper select:disabled {
+            background-color: #e9ecef;
+            opacity: 1;
+            cursor: not-allowed;
+        }
+
+        .custom-select-wrapper select option:checked {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+        /* Contador de opciones visibles */
+        .option-counter {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
     </style>
 @stop
 
@@ -80,6 +130,7 @@
                                     Mostrar solo lotes sin medición
                                 </label>
                             </div>
+                            <div id="contadorLotes" class="option-counter mt-2"></div>
                         </div>
 
                         <form id="medicionProvisoriaForm" enctype="multipart/form-data">
@@ -87,14 +138,16 @@
 
                             <div class="form-group">
                                 <label>Nº de Lote</label>
-                                <select name="lote" id="selectorLotes" class="form-control" required>
-                                    <option value="" selected disabled>Seleccione un lote</option>
-                                    @foreach($lotes as $lote)
-                                        @if($lote->lote != '0')
-                                            <option value="{{ $lote->lote }}" data-tiene-medicion="{{ $lote->tiene_medicion ? 'true' : 'false' }}">{{ $lote->lote }}</option>
-                                        @endif
-                                    @endforeach
-                                </select>
+                                <div class="custom-select-wrapper">
+                                    <select name="lote" id="selectorLotes" class="form-control" required>
+                                        <option value="" selected disabled>Seleccione un lote</option>
+                                        @foreach($lotes as $lote)
+                                            @if($lote->lote != '0')
+                                                <option value="{{ $lote->lote }}" data-tiene-medicion="{{ $lote->tiene_medicion ? 'true' : 'false' }}">{{ $lote->lote }}</option>
+                                            @endif
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
 
                             <div class="form-group">
@@ -198,38 +251,18 @@
     <script src="//unpkg.com/alpinejs" defer></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <!--<script src="https://unpkg.com/slim-select@latest/dist/slimselect.js"></script>-->
-    <script src="https://unpkg.com/slim-select@1.27.1/dist/slimselect.js"></script>
+    <!-- ELIMINAMOS slimselect.js -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const selectElement = document.getElementById('selectorLotes');
-            console.log(selectElement);
             const video = document.getElementById('webcam');
             const canvas = document.getElementById('canvas');
             const mostrarSoloSinMedicionCheckbox = document.getElementById('mostrarSoloSinMedicion');
             const downloadPhotoLink = document.getElementById('download-photo');
+            const contadorLotes = document.getElementById('contadorLotes');
             let stream;
-            let selectLotes;
             let currentPhotoData = null;
             let currentPhotoName = null;
-
-            // Función para ordenamiento natural
-            function naturalSort(a, b) {
-                const aNum = parseInt(a.text.replace(/[^\d]/g, ''));
-                const bNum = parseInt(b.text.replace(/[^\d]/g, ''));
-                return aNum - bNum;
-            }
-
-            // Guardar las opciones originales
-            const originalOptions = Array.from(selectElement.options).map(option => {
-                return {
-                    value: option.value,
-                    text: option.text,
-                    data: {
-                        tieneMedicion: option.dataset.tieneMedicion
-                    }
-                };
-            });
 
             // Función para cargar el medidor
             function cargarMedidor(valor) {
@@ -249,43 +282,50 @@
                 }
             }
 
-            // Función para inicializar SlimSelect con las opciones filtradas
-            function initSlimSelect() {
-                const options = originalOptions.filter(option => {
-                    if (!mostrarSoloSinMedicionCheckbox.checked) {
-                        return true;
-                    }
-                    return option.data.tieneMedicion !== 'true';
-                });
+            // Función para filtrar opciones del select
+            function filtrarOpciones() {
+                const mostrarSoloSinMedicion = mostrarSoloSinMedicionCheckbox.checked;
+                const options = selectElement.options;
+                let opcionesVisibles = 0;
 
-                if (selectLotes) {
-                    selectLotes.destroy();
+                for (let i = 0; i < options.length; i++) {
+                    const option = options[i];
+                    if (option.value === '') continue; // Skip placeholder
+                    
+                    const tieneMedicion = option.dataset.tieneMedicion === 'true';
+                    const debeMostrar = !mostrarSoloSinMedicion || !tieneMedicion;
+                    
+                    option.style.display = debeMostrar ? '' : 'none';
+                    if (debeMostrar) opcionesVisibles++;
                 }
 
-                selectLotes = new SlimSelect({
-                    select: '#selectorLotes',
-                    sort: naturalSort,
-                    placeholder: 'Seleccione un lote',
-                    allowDeselect: true,
-                    data: options
-                });
+                // Actualizar contador
+                contadorLotes.textContent = `Mostrando ${opcionesVisibles} lotes disponibles`;
 
-                // Escuchar el evento personalizado de SlimSelect
-                const selectElement = document.getElementById('selectorLotes');
-                selectElement.addEventListener('slim:change', function(e) {
-                    const selectedValue = this.value;
-                    console.log('Evento slim:change disparado, valor:', selectedValue);
-                    cargarMedidor(selectedValue);
-                });
+                // Si la opción seleccionada está oculta, resetear
+                if (selectElement.selectedIndex > 0) {
+                    const selectedOption = selectElement.options[selectElement.selectedIndex];
+                    if (selectedOption.style.display === 'none') {
+                        selectElement.value = '';
+                        document.getElementById('medidor').value = '';
+                    }
+                }
             }
 
-            // Inicializar SlimSelect con el checkbox marcado por defecto
-            initSlimSelect();
-
-            // Escuchar cambios en el checkbox de filtrado
-            mostrarSoloSinMedicionCheckbox.addEventListener('change', function() {
-                initSlimSelect();
+            // Evento change del select - usando el evento nativo
+            selectElement.addEventListener('change', function(e) {
+                const selectedValue = this.value;
+                console.log('Evento change nativo disparado, valor:', selectedValue);
+                cargarMedidor(selectedValue);
             });
+
+            // Evento change del checkbox de filtro
+            mostrarSoloSinMedicionCheckbox.addEventListener('change', function() {
+                filtrarOpciones();
+            });
+
+            // Inicializar filtro
+            filtrarOpciones();
 
             // Activar cámara al hacer click en el botón
             document.getElementById('btnActivarCamara').addEventListener('click', function() {
