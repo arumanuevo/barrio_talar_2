@@ -428,7 +428,7 @@
             log('📋 DOM completamente cargado');
 
             // ============================================
-            // DATOS DE LOTES DESDE PHP
+            // DATOS DE LOTES DESDE PHP - SIN LÍMITE
             // ============================================
             const lotesData = [
                 @foreach($lotes as $lote => $idLote)
@@ -440,7 +440,7 @@
                 @endforeach
             ];
 
-            log('📊 Datos de lotes cargados:', 'info', { total: lotesData.length });
+            log('📊 Datos de lotes cargados (TODOS):', 'info', { total: lotesData.length });
 
             // ============================================
             // REFERENCIAS A ELEMENTOS
@@ -474,16 +474,16 @@
             let suggestionsVisible = false;
 
             // ============================================
-            // FUNCIONES DE BÚSQUEDA
+            // FUNCIONES DE BÚSQUEDA - SIN LÍMITE
             // ============================================
             function buscarLotes(termino) {
                 if (!termino || termino.trim() === '') {
-                    return lotesData.slice(0, 20);
+                    return lotesData; // TODOS los lotes, sin límite
                 }
                 const busqueda = termino.toLowerCase().trim();
                 return lotesData.filter(lote => 
                     lote.lote.toLowerCase().includes(busqueda)
-                ).slice(0, 20);
+                );
             }
 
             // ============================================
@@ -584,7 +584,7 @@
             }
 
             // ============================================
-            // RENDERIZAR SUGERENCIAS
+            // RENDERIZAR SUGERENCIAS - SIN LÍMITE
             // ============================================
             function renderSuggestions(resultados) {
                 suggestionsList.innerHTML = '';
@@ -598,6 +598,7 @@
                     return;
                 }
 
+                // Mostrar TODOS los resultados sin límite
                 resultados.forEach(lote => {
                     const item = document.createElement('div');
                     item.className = 'suggestion-item';
@@ -789,7 +790,8 @@
             calcularVencimiento();
 
             log('✅ Aplicación inicializada correctamente');
-            log('💡 Haz clic en el buscador para ver los lotes disponibles');
+            log(`📊 Total de lotes disponibles: ${lotesData.length}`);
+            log('💡 Haz clic en el buscador para ver TODOS los lotes disponibles');
 
             // ============================================
             // CÓDIGO DE CÁMARA (MANTENIDO)
@@ -1054,7 +1056,7 @@
                 });
             });
 
-            log('🎯 Aplicación lista. Haz clic en el buscador para ver los lotes disponibles.');
+            log('🎯 Aplicación lista. Haz clic en el buscador para ver TODOS los lotes disponibles.');
         });
     </script>
 @stop
