@@ -56,16 +56,15 @@
             margin-left: 10px;
         }
 
-        .custom-select-wrapper {
+        /* Estilos para el buscador con datalist */
+        .searchable-select-wrapper {
             position: relative;
-            display: inline-block;
             width: 100%;
         }
 
-        .custom-select-wrapper select {
-            display: block;
+        .searchable-select-wrapper input[type="text"] {
             width: 100%;
-            padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+            padding: 0.375rem 0.75rem;
             font-size: 1rem;
             font-weight: 400;
             line-height: 1.5;
@@ -75,31 +74,28 @@
             border: 1px solid #ced4da;
             border-radius: 0.25rem;
             transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
-            appearance: auto;
-            -webkit-appearance: auto;
-            -moz-appearance: auto;
-            cursor: pointer;
         }
 
-        .custom-select-wrapper select:focus {
+        .searchable-select-wrapper input[type="text"]:focus {
             border-color: #86b7fe;
             outline: 0;
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
         }
 
-        .custom-select-wrapper select:disabled {
+        .searchable-select-wrapper .selected-lote-display {
+            margin-top: 0.5rem;
+            padding: 0.375rem 0.75rem;
             background-color: #e9ecef;
-            opacity: 1;
-            cursor: not-allowed;
+            border-radius: 0.25rem;
+            font-weight: 500;
+            display: none;
         }
 
-        .option-counter {
-            font-size: 0.875rem;
-            color: #6c757d;
-            margin-top: 0.25rem;
+        .searchable-select-wrapper .selected-lote-display.visible {
+            display: block;
         }
 
-        /* Estilo para debugging */
+        /* Estilos para debugging */
         .debug-info {
             background-color: #f8f9fa;
             border: 1px solid #dee2e6;
@@ -174,16 +170,32 @@
 
                             <div class="form-group">
                                 <label>Nº de Lote</label>
-                                <div class="custom-select-wrapper">
-                                    <select name="lote" id="selectorLotes" class="form-control" required>
-                                        <option value="" selected disabled>Seleccione un lote</option>
+                                <!-- Buscador con datalist -->
+                                <div class="searchable-select-wrapper">
+                                    <input type="text" 
+                                           id="buscadorLotes" 
+                                           class="form-control" 
+                                           placeholder="Escriba el número de lote para buscar..." 
+                                           autocomplete="off"
+                                           list="listaLotes">
+                                    <datalist id="listaLotes">
                                         @foreach($lotes as $lote)
                                             @if($lote->lote != '0')
-                                                <option value="{{ $lote->lote }}" data-tiene-medicion="{{ $lote->tiene_medicion ? 'true' : 'false' }}">{{ $lote->lote }}</option>
+                                                <option value="{{ $lote->lote }}" 
+                                                        data-tiene-medicion="{{ $lote->tiene_medicion ? 'true' : 'false' }}">
+                                                    Lote {{ $lote->lote }} 
+                                                    {{ $lote->tiene_medicion ? '✓' : '' }}
+                                                </option>
                                             @endif
                                         @endforeach
-                                    </select>
+                                    </datalist>
+                                    <div id="selectedLoteDisplay" class="selected-lote-display">
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        Lote seleccionado: <span id="selectedLoteText">-</span>
+                                    </div>
+                                    <input type="hidden" id="selectorLotes" name="lote" value="">
                                 </div>
+                                <small class="text-muted" id="loteStatus">Escriba un número de lote para buscar</small>
                             </div>
 
                             <div class="form-group">
@@ -312,8 +324,6 @@
                 
                 debugLog.appendChild(entry);
                 debugPanel.scrollTop = debugPanel.scrollHeight;
-                
-                // También al console
                 console.log(`[DEBUG] ${message}`, data || '');
             }
 
@@ -323,38 +333,40 @@
                 log('Debug panel toggled');
             });
 
-            log('🚀 Iniciando aplicación de medición provisoria');
+            log('🚀 Iniciando aplicación de medición provisoria con buscador');
             log('📋 DOM completamente cargado');
 
             // ============================================
             // REFERENCIAS A ELEMENTOS
             // ============================================
-            const selectElement = document.getElementById('selectorLotes');
+            const buscadorInput = document.getElementById('buscadorLotes');
+            const hiddenSelect = document.getElementById('selectorLotes');
+            const selectedLoteDisplay = document.getElementById('selectedLoteDisplay');
+            const selectedLoteText = document.getElementById('selectedLoteText');
             const medidorInput = document.getElementById('medidor');
             const medidorStatus = document.getElementById('medidorStatus');
+            const loteStatus = document.getElementById('loteStatus');
+            const mostrarSoloSinMedicionCheckbox = document.getElementById('mostrarSoloSinMedicion');
+            const contadorLotes = document.getElementById('contadorLotes');
             const video = document.getElementById('webcam');
             const canvas = document.getElementById('canvas');
-            const mostrarSoloSinMedicionCheckbox = document.getElementById('mostrarSoloSinMedicion');
             const downloadPhotoLink = document.getElementById('download-photo');
-            const contadorLotes = document.getElementById('contadorLotes');
-            
-            log('📌 Elementos encontrados:', {
-                select: !!selectElement,
-                medidor: !!medidorInput,
-                checkbox: !!mostrarSoloSinMedicionCheckbox
-            });
+            const datalist = document.getElementById('listaLotes');
 
-            if (!selectElement) {
-                log('❌ ERROR CRÍTICO: No se encuentra el elemento select', 'error');
-                return;
-            }
+            log('📌 Elementos encontrados:', {
+                buscador: !!buscadorInput,
+                hiddenSelect: !!hiddenSelect,
+                datalist: !!datalist,
+                checkbox: !!mostrarSoloSinMedicionCheckbox,
+                opcionesDatalist: datalist ? datalist.options.length : 0
+            });
 
             let stream;
             let currentPhotoData = null;
             let currentPhotoName = null;
 
             // ============================================
-            // FUNCIÓN PARA CARGAR MEDIDOR (CON DEBUG)
+            // FUNCIÓN PARA CARGAR MEDIDOR
             // ============================================
             function cargarMedidor(valor) {
                 log(`🔍 Intentando cargar medidor para lote: "${valor}"`, 'info');
@@ -394,62 +406,17 @@
             }
 
             // ============================================
-            // EVENTO CHANGE DEL SELECT (CON DEBUG)
+            // FILTRO DE OPCIONES DEL DATALIST
             // ============================================
-            log('📌 Configurando evento change del select');
-
-            // Eliminar eventos anteriores (por si acaso)
-            const newSelect = selectElement.cloneNode(true);
-            selectElement.parentNode.replaceChild(newSelect, selectElement);
-            const finalSelect = document.getElementById('selectorLotes');
-            
-            finalSelect.addEventListener('change', function(e) {
-                const selectedValue = this.value;
-                const selectedText = this.options[this.selectedIndex]?.text || 'N/A';
-                const tieneMedicion = this.options[this.selectedIndex]?.dataset?.tieneMedicion || 'N/A';
-                
-                log('🔄 Evento CHANGE disparado', 'info', {
-                    value: selectedValue,
-                    text: selectedText,
-                    tieneMedicion: tieneMedicion,
-                    selectedIndex: this.selectedIndex
-                });
-
-                if (selectedValue && selectedValue !== '') {
-                    log(`📌 Lote seleccionado: ${selectedValue} (${selectedText})`);
-                    cargarMedidor(selectedValue);
-                } else {
-                    log('⚠️ Selección vacía o deseleccionada', 'warning');
-                    medidorInput.value = '';
-                    medidorStatus.textContent = '⚠️ Seleccione un lote';
-                    medidorStatus.style.color = '#ffc107';
-                }
-            });
-
-            // También escuchar el evento 'click' para debugging
-            finalSelect.addEventListener('click', function(e) {
-                log('🖱️ Click en el select', 'info', {
-                    currentValue: this.value,
-                    selectedIndex: this.selectedIndex
-                });
-            });
-
-            // ============================================
-            // FILTRO DE OPCIONES
-            // ============================================
-            function filtrarOpciones() {
+            function filtrarOpcionesDatalist() {
                 const mostrarSoloSinMedicion = mostrarSoloSinMedicionCheckbox.checked;
-                const options = finalSelect.options;
+                const options = datalist.options;
                 let opcionesVisibles = 0;
-                let opcionesTotales = 0;
 
-                log(`🔍 Aplicando filtro: mostrarSoloSinMedicion = ${mostrarSoloSinMedicion}`, 'info');
+                log(`🔍 Aplicando filtro al datalist: mostrarSoloSinMedicion = ${mostrarSoloSinMedicion}`, 'info');
 
                 for (let i = 0; i < options.length; i++) {
                     const option = options[i];
-                    if (option.value === '') continue;
-                    
-                    opcionesTotales++;
                     const tieneMedicion = option.dataset.tieneMedicion === 'true';
                     const debeMostrar = !mostrarSoloSinMedicion || !tieneMedicion;
                     
@@ -457,15 +424,24 @@
                     if (debeMostrar) opcionesVisibles++;
                 }
 
-                log(`📊 Filtro aplicado: ${opcionesVisibles} de ${opcionesTotales} lotes visibles`, 'info');
+                // Actualizar contador
                 contadorLotes.textContent = `Mostrando ${opcionesVisibles} lotes disponibles`;
+                log(`📊 Filtro aplicado: ${opcionesVisibles} opciones visibles`, 'info');
 
-                // Si la opción seleccionada está oculta, resetear
-                if (finalSelect.selectedIndex > 0) {
-                    const selectedOption = finalSelect.options[finalSelect.selectedIndex];
-                    if (selectedOption.style.display === 'none') {
-                        log('⚠️ Opción seleccionada oculta, reseteando', 'warning');
-                        finalSelect.value = '';
+                // Si el valor actual del buscador no está visible, limpiar selección
+                const valorActual = buscadorInput.value;
+                if (valorActual) {
+                    let existeVisible = false;
+                    for (let i = 0; i < options.length; i++) {
+                        if (options[i].value === valorActual && options[i].style.display !== 'none') {
+                            existeVisible = true;
+                            break;
+                        }
+                    }
+                    if (!existeVisible) {
+                        log('⚠️ El lote seleccionado ya no está visible', 'warning');
+                        hiddenSelect.value = '';
+                        selectedLoteDisplay.classList.remove('visible');
                         medidorInput.value = '';
                         medidorStatus.textContent = '⚠️ Seleccione un lote';
                         medidorStatus.style.color = '#ffc107';
@@ -474,11 +450,84 @@
             }
 
             // ============================================
-            // EVENTO DEL CHECKBOX (CON DEBUG)
+            // EVENTOS DEL BUSCADOR
+            // ============================================
+            buscadorInput.addEventListener('input', function(e) {
+                const valor = this.value.trim();
+                log('🔎 Buscando lote:', 'info', { valor });
+                
+                // Buscar en el datalist si existe la opción y está visible
+                let encontrado = false;
+                for (let i = 0; i < datalist.options.length; i++) {
+                    const opt = datalist.options[i];
+                    if (opt.value === valor && opt.style.display !== 'none') {
+                        encontrado = true;
+                        break;
+                    }
+                }
+                
+                if (encontrado && valor !== '') {
+                    // Seleccionar el lote
+                    hiddenSelect.value = valor;
+                    selectedLoteText.textContent = valor;
+                    selectedLoteDisplay.classList.add('visible');
+                    loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
+                    loteStatus.style.color = '#198754';
+                    
+                    log('📌 Lote seleccionado desde buscador:', 'success', { valor });
+                    cargarMedidor(valor);
+                } else if (valor === '') {
+                    // Limpiar selección
+                    hiddenSelect.value = '';
+                    selectedLoteDisplay.classList.remove('visible');
+                    medidorInput.value = '';
+                    medidorStatus.textContent = '⚠️ Seleccione un lote';
+                    medidorStatus.style.color = '#ffc107';
+                    loteStatus.textContent = 'Escriba un número de lote para buscar';
+                    loteStatus.style.color = '#6c757d';
+                } else {
+                    // Búsqueda en curso pero no coincidencia exacta
+                    loteStatus.textContent = `🔍 Buscando "${valor}"...`;
+                    loteStatus.style.color = '#ffc107';
+                    // Limpiar selección anterior
+                    hiddenSelect.value = '';
+                    selectedLoteDisplay.classList.remove('visible');
+                    medidorInput.value = '';
+                    medidorStatus.textContent = '⚠️ Seleccione un lote';
+                    medidorStatus.style.color = '#ffc107';
+                }
+            });
+
+            // También permitir selección desde el datalist con click
+            buscadorInput.addEventListener('change', function(e) {
+                const valor = this.value.trim();
+                if (valor) {
+                    // Verificar si existe en el datalist y está visible
+                    let existe = false;
+                    for (let i = 0; i < datalist.options.length; i++) {
+                        if (datalist.options[i].value === valor && datalist.options[i].style.display !== 'none') {
+                            existe = true;
+                            break;
+                        }
+                    }
+                    if (existe) {
+                        hiddenSelect.value = valor;
+                        selectedLoteText.textContent = valor;
+                        selectedLoteDisplay.classList.add('visible');
+                        loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
+                        loteStatus.style.color = '#198754';
+                        log('📌 Lote seleccionado por cambio:', 'success', { valor });
+                        cargarMedidor(valor);
+                    }
+                }
+            });
+
+            // ============================================
+            // EVENTO DEL CHECKBOX DE FILTRO
             // ============================================
             mostrarSoloSinMedicionCheckbox.addEventListener('change', function() {
                 log(`🔄 Checkbox cambiado: ${this.checked ? '✓ Marcado' : '✗ Desmarcado'}`, 'info');
-                filtrarOpciones();
+                filtrarOpcionesDatalist();
             });
 
             // ============================================
@@ -486,24 +535,8 @@
             // ============================================
             log('🔧 Inicializando aplicación...');
             
-            // Verificar opciones del select
-            const totalOptions = finalSelect.options.length;
-            log(`📋 Select tiene ${totalOptions} opciones totales`);
-            
-            // Mostrar las primeras 5 opciones para debug
-            const sampleOptions = [];
-            for (let i = 0; i < Math.min(5, totalOptions); i++) {
-                const opt = finalSelect.options[i];
-                sampleOptions.push({
-                    value: opt.value,
-                    text: opt.text,
-                    tieneMedicion: opt.dataset.tieneMedicion
-                });
-            }
-            log('📋 Muestra de opciones:', 'info', sampleOptions);
-
             // Aplicar filtro inicial
-            filtrarOpciones();
+            filtrarOpcionesDatalist();
             
             // Verificar el estado inicial del medidor
             log('📊 Estado inicial del medidor:', {
@@ -512,10 +545,10 @@
             });
 
             log('✅ Aplicación inicializada correctamente');
-            log('💡 Ahora selecciona un lote para ver el debug en acción');
+            log('💡 Escribe un número de lote en el buscador para comenzar');
 
             // ============================================
-            // EL RESTO DEL CÓDIGO (CÁMARA, FOTO, GUARDADO)
+            // CÓDIGO DE CÁMARA (MANTENIDO)
             // ============================================
 
             // Activar cámara al hacer click en el botón
@@ -603,7 +636,7 @@
                 currentPhotoData = canvas.toDataURL('image/png');
 
                 // Generar el nombre de la foto
-                let codLote = document.getElementById('selectorLotes').value;
+                let codLote = hiddenSelect.value;
                 let fechaToma = document.getElementById('fecha_medicion').value;
                 let fechaFormateada = fechaToma.replace(/-/g, '');
                 currentPhotoName = `talar2_${codLote}_${fechaFormateada}.png`;
@@ -695,9 +728,20 @@
                 $("#errorMsg").removeClass("d-none");
             }
 
-            // Guardar medición
+            // ============================================
+            // GUARDAR MEDICIÓN
+            // ============================================
             document.getElementById('btnGuardarMedicion').addEventListener('click', function() {
                 log('💾 Intentando guardar medición', 'info');
+                
+                // Asegurar que el hidden select tenga el valor correcto
+                if (!hiddenSelect.value) {
+                    log('⚠️ No hay lote seleccionado', 'warning');
+                    medidorStatus.textContent = '⚠️ Seleccione un lote primero';
+                    medidorStatus.style.color = '#dc3545';
+                    return;
+                }
+
                 const form = document.getElementById('medicionProvisoriaForm');
                 const formData = new FormData(form);
 
@@ -721,10 +765,13 @@
                             message: error.message,
                             response: error.response?.data
                         });
+                        // Mostrar error
+                        medidorStatus.textContent = `❌ Error: ${error.response?.data?.message || error.message}`;
+                        medidorStatus.style.color = '#dc3545';
                     });
             });
 
-            log('🎯 Aplicación lista. Selecciona un lote y observa el panel de debug.');
+            log('🎯 Aplicación lista. Escribe un número de lote para buscar y seleccionar.');
         });
     </script>
 @stop
