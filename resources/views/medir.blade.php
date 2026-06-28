@@ -7,7 +7,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
     <link href="{{ asset('css/css-loader.css') }}" rel="stylesheet">
-    <!-- ELIMINAMOS slimselect CSS -->
     <style>
         .container {
             max-height: calc(100vh - 100px);
@@ -35,16 +34,15 @@
             font-size: 0.9em;
         }
 
-        .custom-select-wrapper {
+        /* Estilos para el buscador con datalist */
+        .searchable-select-wrapper {
             position: relative;
-            display: inline-block;
             width: 100%;
         }
 
-        .custom-select-wrapper select {
-            display: block;
+        .searchable-select-wrapper input[type="text"] {
             width: 100%;
-            padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+            padding: 0.375rem 0.75rem;
             font-size: 1rem;
             font-weight: 400;
             line-height: 1.5;
@@ -54,22 +52,46 @@
             border: 1px solid #ced4da;
             border-radius: 0.25rem;
             transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
-            appearance: auto;
-            -webkit-appearance: auto;
-            -moz-appearance: auto;
-            cursor: pointer;
         }
 
-        .custom-select-wrapper select:focus {
+        .searchable-select-wrapper input[type="text"]:focus {
             border-color: #86b7fe;
             outline: 0;
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
         }
 
-        .custom-select-wrapper select:disabled {
+        .searchable-select-wrapper datalist {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 100%;
+            z-index: 1000;
+        }
+
+        .searchable-select-wrapper datalist option {
+            padding: 0.375rem 0.75rem;
+            cursor: pointer;
+        }
+
+        .searchable-select-wrapper datalist option:hover {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+        .searchable-select-wrapper .selected-lote-display {
+            margin-top: 0.5rem;
+            padding: 0.375rem 0.75rem;
             background-color: #e9ecef;
-            opacity: 1;
-            cursor: not-allowed;
+            border-radius: 0.25rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .searchable-select-wrapper .selected-lote-display.visible {
+            display: block;
         }
 
         /* Panel de Debug */
@@ -159,17 +181,28 @@
                         <form name="ajaxform" id="ajaxform">
                             <div class="form-group">
                                 <label>Seleccione Nº de Lote</label>
-                                <div class="custom-select-wrapper">
-                                    <select class="form-control" id="selectorLotes" required>
-                                        <option value="">Seleccione un lote</option>
+                                <!-- Buscador con datalist -->
+                                <div class="searchable-select-wrapper">
+                                    <input type="text" 
+                                           id="buscadorLotes" 
+                                           class="form-control" 
+                                           placeholder="Escriba el número de lote para buscar..." 
+                                           autocomplete="off"
+                                           list="listaLotes">
+                                    <datalist id="listaLotes">
                                         @foreach($lotes as $lote => $idLote)
                                             @if($idLote->lote != '0')
-                                                <option value="{{ $idLote->lote }}">{{ $idLote->lote }}</option>
+                                                <option value="{{ $idLote->lote }}">Lote {{ $idLote->lote }}</option>
                                             @endif
                                         @endforeach
-                                    </select>
+                                    </datalist>
+                                    <div id="selectedLoteDisplay" class="selected-lote-display">
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        Lote seleccionado: <span id="selectedLoteText">-</span>
+                                    </div>
+                                    <input type="hidden" id="selectorLotes" name="lote" value="">
                                 </div>
-                                <small class="text-muted" id="loteStatus">Seleccione un lote</small>
+                                <small class="text-muted" id="loteStatus">Escriba un número de lote para buscar</small>
                             </div>
 
                             <div class="form-group">
@@ -324,7 +357,6 @@
     <script src="//unpkg.com/alpinejs" defer></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <!-- ELIMINAMOS slimselect.js -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // ============================================
@@ -358,13 +390,16 @@
                 log('Debug panel toggled');
             });
 
-            log('🚀 Iniciando aplicación de medición (no provisoria)');
+            log('🚀 Iniciando aplicación de medición con buscador');
             log('📋 DOM completamente cargado');
 
             // ============================================
             // REFERENCIAS A ELEMENTOS
             // ============================================
-            const selectElement = document.getElementById('selectorLotes');
+            const buscadorInput = document.getElementById('buscadorLotes');
+            const hiddenSelect = document.getElementById('selectorLotes');
+            const selectedLoteDisplay = document.getElementById('selectedLoteDisplay');
+            const selectedLoteText = document.getElementById('selectedLoteText');
             const codMedidorInput = document.getElementById('codMedidor');
             const medidorStatus = document.getElementById('medidorStatus');
             const loteStatus = document.getElementById('loteStatus');
@@ -379,27 +414,17 @@
             const fotoInput = document.getElementById('foto');
             const btnSubirFoto = document.getElementById('btnSubirFoto');
             const sinFotoCheckbox = document.getElementById('sinFoto');
+            const datalist = document.getElementById('listaLotes');
 
             log('📌 Elementos encontrados:', {
-                select: !!selectElement,
-                codMedidor: !!codMedidorInput,
-                fechaToma: !!fechaTomaInput
+                buscador: !!buscadorInput,
+                hiddenSelect: !!hiddenSelect,
+                datalist: !!datalist,
+                opcionesDatalist: datalist ? datalist.options.length : 0
             });
 
-            if (!selectElement) {
-                log('❌ ERROR CRÍTICO: No se encuentra el elemento select', 'error');
-                return;
-            }
-
-            // Variables para cámara
-            const video = document.getElementById('webcam');
-            const canvas = document.getElementById('canvas');
-            let stream;
-            let currentPhotoData = null;
-            let currentPhotoName = null;
-
             // ============================================
-            // FUNCIÓN PARA OBTENER DATOS DEL LOTE (CON DEBUG)
+            // FUNCIÓN PARA OBTENER DATOS DEL LOTE
             // ============================================
             function obtenerDatosLote(valor) {
                 log(`🔍 Consultando datos para lote: "${valor}"`, 'info');
@@ -424,36 +449,35 @@
                         'Accept': 'application/json'
                     }
                 })
-                // En la función obtenerDatosLote()
-.then(response => {
-    log('✅ Petición exitosa', 'success', response.data);
-    const data = response.data;
-    
-    // Actualizar campos usando los nombres correctos
-    codMedidorInput.value = data.medidor || 'N/A';
-    tomaAntInput.value = data.fecha_anterior || '';
-    tomaAnteriorInput.value = data.medidor_anterior || 0;
-    
-    // Calcular vencimiento
-    if (fechaTomaInput.value && periodoInput.value) {
-        calcularVencimiento();
-    }
-    
-    medidorStatus.textContent = `✅ Medidor: ${data.medidor || 'N/A'}`;
-    medidorStatus.style.color = '#198754';
-    loteStatus.textContent = `✅ Lote ${valor} cargado`;
-    loteStatus.style.color = '#198754';
-    
-    // Habilitar botones
-    btnActivarCamara.disabled = false;
-    btnGuardar.disabled = false;
-    
-    log('📊 Datos del lote cargados correctamente', 'success', {
-        medidor: data.medidor,
-        fecha_anterior: data.fecha_anterior,
-        medidor_anterior: data.medidor_anterior
-    });
-})
+                .then(response => {
+                    log('✅ Petición exitosa', 'success', response.data);
+                    const data = response.data;
+                    
+                    // Actualizar campos
+                    codMedidorInput.value = data.medidor || 'N/A';
+                    tomaAntInput.value = data.fecha_anterior || '';
+                    tomaAnteriorInput.value = data.medidor_anterior || 0;
+                    
+                    // Calcular vencimiento
+                    if (fechaTomaInput.value && periodoInput.value) {
+                        calcularVencimiento();
+                    }
+                    
+                    medidorStatus.textContent = `✅ Medidor: ${data.medidor || 'N/A'}`;
+                    medidorStatus.style.color = '#198754';
+                    loteStatus.textContent = `✅ Lote ${valor} cargado`;
+                    loteStatus.style.color = '#198754';
+                    
+                    // Habilitar botones
+                    btnActivarCamara.disabled = false;
+                    btnGuardar.disabled = false;
+                    
+                    log('📊 Datos del lote cargados correctamente', 'success', {
+                        medidor: data.medidor,
+                        fecha_anterior: data.fecha_anterior,
+                        medidor_anterior: data.medidor_anterior
+                    });
+                })
                 .catch(error => {
                     log('❌ Error en la petición', 'error', {
                         message: error.message,
@@ -477,6 +501,8 @@
                 loteStatus.style.color = '#ffc107';
                 btnActivarCamara.disabled = true;
                 btnGuardar.disabled = true;
+                selectedLoteDisplay.classList.remove('visible');
+                hiddenSelect.value = '';
             }
 
             // ============================================
@@ -498,31 +524,66 @@
             }
 
             // ============================================
-            // EVENTO CHANGE DEL SELECT (CON DEBUG)
+            // EVENTOS DEL BUSCADOR
             // ============================================
-            log('📌 Configurando evento change del select');
-
-            // Eliminar eventos anteriores
-            const newSelect = selectElement.cloneNode(true);
-            selectElement.parentNode.replaceChild(newSelect, selectElement);
-            const finalSelect = document.getElementById('selectorLotes');
-            
-            finalSelect.addEventListener('change', function(e) {
-                const selectedValue = this.value;
-                const selectedText = this.options[this.selectedIndex]?.text || 'N/A';
+            buscadorInput.addEventListener('input', function(e) {
+                const valor = this.value.trim();
+                log('🔎 Buscando lote:', 'info', { valor });
                 
-                log('🔄 Evento CHANGE disparado', 'info', {
-                    value: selectedValue,
-                    text: selectedText,
-                    selectedIndex: this.selectedIndex
-                });
-
-                if (selectedValue && selectedValue !== '') {
-                    log(`📌 Lote seleccionado: ${selectedValue} (${selectedText})`);
-                    obtenerDatosLote(selectedValue);
-                } else {
-                    log('⚠️ Selección vacía o deseleccionada', 'warning');
+                // Buscar en el datalist si existe la opción
+                let encontrado = false;
+                for (let i = 0; i < datalist.options.length; i++) {
+                    if (datalist.options[i].value === valor) {
+                        encontrado = true;
+                        break;
+                    }
+                }
+                
+                if (encontrado && valor !== '') {
+                    // Seleccionar el lote
+                    hiddenSelect.value = valor;
+                    selectedLoteText.textContent = valor;
+                    selectedLoteDisplay.classList.add('visible');
+                    loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
+                    loteStatus.style.color = '#198754';
+                    
+                    log('📌 Lote seleccionado desde buscador:', 'success', { valor });
+                    obtenerDatosLote(valor);
+                } else if (valor === '') {
+                    // Limpiar selección
+                    hiddenSelect.value = '';
+                    selectedLoteDisplay.classList.remove('visible');
                     limpiarCampos();
+                    loteStatus.textContent = 'Escriba un número de lote para buscar';
+                    loteStatus.style.color = '#6c757d';
+                } else {
+                    // Búsqueda en curso pero no coincidencia exacta
+                    loteStatus.textContent = `🔍 Buscando "${valor}"...`;
+                    loteStatus.style.color = '#ffc107';
+                }
+            });
+
+            // También permitir selección desde el datalist con click
+            buscadorInput.addEventListener('change', function(e) {
+                const valor = this.value.trim();
+                if (valor) {
+                    // Verificar si existe en el datalist
+                    let existe = false;
+                    for (let i = 0; i < datalist.options.length; i++) {
+                        if (datalist.options[i].value === valor) {
+                            existe = true;
+                            break;
+                        }
+                    }
+                    if (existe) {
+                        hiddenSelect.value = valor;
+                        selectedLoteText.textContent = valor;
+                        selectedLoteDisplay.classList.add('visible');
+                        loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
+                        loteStatus.style.color = '#198754';
+                        log('📌 Lote seleccionado por cambio:', 'success', { valor });
+                        obtenerDatosLote(valor);
+                    }
                 }
             });
 
@@ -576,7 +637,7 @@
             }
 
             function setNombreFoto() {
-                let codLote = finalSelect.value;
+                let codLote = hiddenSelect.value;
                 let fechaToma = fechaTomaInput.value;
                 if (codLote && fechaToma) {
                     let diaCorregido = formatDate2(fechaToma, 'es');
@@ -590,10 +651,6 @@
             // ============================================
             log('🔧 Inicializando aplicación...');
             
-            // Verificar opciones del select
-            const totalOptions = finalSelect.options.length;
-            log(`📋 Select tiene ${totalOptions} opciones totales`);
-            
             // Establecer fecha actual
             const hoy = new Date();
             const year = hoy.getFullYear();
@@ -606,12 +663,16 @@
             calcularVencimiento();
 
             log('✅ Aplicación inicializada correctamente');
-            log('💡 Ahora selecciona un lote para ver el debug en acción');
+            log('💡 Escribe un número de lote en el buscador para comenzar');
 
             // ============================================
             // CÓDIGO DE CÁMARA (MANTENIDO)
             // ============================================
-            
+            const video = document.getElementById('webcam');
+            const canvas = document.getElementById('canvas');
+            let stream;
+            let currentPhotoData = null;
+
             // Activar cámara
             btnActivarCamara.addEventListener('click', function() {
                 log('📷 Activando cámara', 'info');
@@ -828,12 +889,12 @@
                 log('💾 Intentando guardar medición', 'info');
                 
                 const formData = {
-                    lote: finalSelect.value,
-                    codMedidor: codMedidorInput.value,
+                    lote: hiddenSelect.value,
+                    medidor: codMedidorInput.value,
                     periodo: periodoInput.value,
-                    tomaAnt: tomaAntInput.value,
+                    fechaAnt: tomaAntInput.value,
                     tomaAnterior: tomaAnteriorInput.value,
-                    fechaToma: fechaTomaInput.value,
+                    fechaMedicion: fechaTomaInput.value,
                     vencimiento: vencimientoInput.value,
                     valorMedido: valorMedidoInput.value,
                     inspector: document.getElementById('inspector').value,
@@ -870,7 +931,7 @@
                 });
             });
 
-            log('🎯 Aplicación lista. Selecciona un lote y observa el panel de debug.');
+            log('🎯 Aplicación lista. Escribe un número de lote para buscar y seleccionar.');
         });
     </script>
 @stop
