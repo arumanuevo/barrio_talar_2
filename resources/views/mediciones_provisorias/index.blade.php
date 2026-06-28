@@ -74,6 +74,7 @@
             border: 1px solid #ced4da;
             border-radius: 0.25rem;
             transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+            cursor: text;
         }
 
         .searchable-select-wrapper input[type="text"]:focus {
@@ -110,10 +111,17 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: background-color 0.2s;
         }
 
         .suggestions-list .suggestion-item:hover {
             background-color: #0d6efd;
+            color: white;
+        }
+
+        .suggestions-list .suggestion-item:hover .badge-medido,
+        .suggestions-list .suggestion-item:hover .badge-sin-medir {
+            background-color: rgba(255,255,255,0.3);
             color: white;
         }
 
@@ -123,6 +131,7 @@
             border-radius: 10px;
             background-color: #198754;
             color: white;
+            flex-shrink: 0;
         }
 
         .suggestions-list .suggestion-item .badge-sin-medir {
@@ -131,10 +140,7 @@
             border-radius: 10px;
             background-color: #ffc107;
             color: #000;
-        }
-
-        .suggestions-list .suggestion-item .badge-oculto {
-            display: none;
+            flex-shrink: 0;
         }
 
         .suggestions-list .no-results {
@@ -236,7 +242,7 @@
                                     <input type="text" 
                                            id="buscadorLotes" 
                                            class="form-control" 
-                                           placeholder="Escriba el número de lote para buscar..." 
+                                           placeholder="Escriba o haga clic para ver los lotes..." 
                                            autocomplete="off">
                                     <div id="suggestionsList" class="suggestions-list"></div>
                                     <div id="selectedLoteDisplay" class="selected-lote-display">
@@ -245,7 +251,7 @@
                                     </div>
                                     <input type="hidden" id="selectorLotes" name="lote" value="">
                                 </div>
-                                <small class="text-muted" id="loteStatus">Escriba un número de lote para buscar</small>
+                                <small class="text-muted" id="loteStatus">Escriba o haga clic para buscar un lote</small>
                             </div>
 
                             <div class="form-group">
@@ -429,6 +435,7 @@
             let stream;
             let currentPhotoData = null;
             let currentPhotoName = null;
+            let suggestionsVisible = false;
 
             // ============================================
             // FUNCIONES DE FILTRO Y BÚSQUEDA
@@ -446,18 +453,29 @@
             function buscarLotes(termino) {
                 const filtrados = getLotesFiltrados();
                 if (!termino || termino.trim() === '') {
-                    return filtrados.slice(0, 20); // Mostrar primeros 20
+                    return filtrados.slice(0, 20);
                 }
                 const busqueda = termino.toLowerCase().trim();
                 return filtrados.filter(lote => 
                     lote.lote.toLowerCase().includes(busqueda)
-                ).slice(0, 20); // Limitar a 20 resultados
+                ).slice(0, 20);
             }
 
             function actualizarContador() {
                 const filtrados = getLotesFiltrados();
                 contadorLotes.textContent = `Mostrando ${filtrados.length} lotes disponibles`;
                 log('📊 Contador actualizado:', 'info', { total: filtrados.length });
+            }
+
+            // ============================================
+            // MOSTRAR SUGERENCIAS
+            // ============================================
+            function mostrarSugerencias() {
+                const termino = buscadorInput.value;
+                const resultados = buscarLotes(termino);
+                renderSuggestions(resultados);
+                suggestionsVisible = true;
+                log('📋 Mostrando sugerencias:', 'info', { count: resultados.length });
             }
 
             // ============================================
@@ -534,7 +552,8 @@
                     item.appendChild(textSpan);
                     item.appendChild(badge);
                     
-                    item.addEventListener('click', function() {
+                    item.addEventListener('mousedown', function(e) {
+                        e.preventDefault(); // Prevenir que el input pierda foco
                         seleccionarLote(lote.lote);
                     });
                     
@@ -559,6 +578,7 @@
                 
                 // Ocultar sugerencias
                 suggestionsList.classList.remove('show');
+                suggestionsVisible = false;
                 
                 // Cargar medidor
                 cargarMedidor(valor);
@@ -567,12 +587,34 @@
             // ============================================
             // EVENTOS DEL BUSCADOR
             // ============================================
+            
+            // Click en el input - mostrar todos los lotes disponibles
+            buscadorInput.addEventListener('click', function(e) {
+                log('🖱️ Click en buscador', 'info');
+                // Si ya hay sugerencias visibles, no hacer nada
+                if (suggestionsVisible) {
+                    return;
+                }
+                // Mostrar todos los lotes según el filtro
+                mostrarSugerencias();
+            });
+
+            // Focus en el input - mostrar sugerencias si no hay
+            buscadorInput.addEventListener('focus', function(e) {
+                log('🎯 Focus en buscador', 'info');
+                if (!suggestionsVisible && !this.value) {
+                    mostrarSugerencias();
+                }
+            });
+
+            // Input - filtrar mientras escribe
             buscadorInput.addEventListener('input', function(e) {
                 const termino = this.value;
                 log('🔎 Buscando:', 'info', { termino });
                 
                 if (termino === '') {
-                    suggestionsList.classList.remove('show');
+                    // Mostrar todos los lotes según filtro
+                    mostrarSugerencias();
                     // Limpiar selección si el campo está vacío
                     if (hiddenSelect.value) {
                         hiddenSelect.value = '';
@@ -580,7 +622,7 @@
                         medidorInput.value = '';
                         medidorStatus.textContent = '⚠️ Seleccione un lote';
                         medidorStatus.style.color = '#ffc107';
-                        loteStatus.textContent = 'Escriba un número de lote para buscar';
+                        loteStatus.textContent = 'Escriba o haga clic para buscar un lote';
                         loteStatus.style.color = '#6c757d';
                     }
                     return;
@@ -591,8 +633,10 @@
                 
                 if (resultados.length > 0) {
                     renderSuggestions(resultados);
+                    suggestionsVisible = true;
                 } else {
                     renderSuggestions([]);
+                    suggestionsVisible = true;
                 }
             });
 
@@ -601,6 +645,7 @@
                 const wrapper = document.querySelector('.searchable-select-wrapper');
                 if (!wrapper.contains(e.target)) {
                     suggestionsList.classList.remove('show');
+                    suggestionsVisible = false;
                 }
             });
 
@@ -609,14 +654,18 @@
                 if (e.key === 'Enter') {
                     const termino = this.value.trim();
                     if (termino) {
-                        // Buscar si existe un lote que coincida exactamente
                         const resultados = buscarLotes(termino);
                         if (resultados.length > 0) {
-                            // Seleccionar el primero
                             seleccionarLote(resultados[0].lote);
                         }
                     }
                     e.preventDefault();
+                }
+                // Tecla Escape para cerrar sugerencias
+                if (e.key === 'Escape') {
+                    suggestionsList.classList.remove('show');
+                    suggestionsVisible = false;
+                    this.blur();
                 }
             });
 
@@ -627,15 +676,9 @@
                 log(`🔄 Checkbox cambiado: ${this.checked ? '✓ Marcado' : '✗ Desmarcado'}`, 'info');
                 actualizarContador();
                 
-                // Si hay un término de búsqueda, actualizar sugerencias
-                const termino = buscadorInput.value;
-                if (termino) {
-                    const resultados = buscarLotes(termino);
-                    if (resultados.length > 0) {
-                        renderSuggestions(resultados);
-                    } else {
-                        renderSuggestions([]);
-                    }
+                // Si el buscador está enfocado o hay sugerencias, actualizar
+                if (document.activeElement === buscadorInput || suggestionsVisible) {
+                    mostrarSugerencias();
                 }
             });
 
@@ -645,14 +688,13 @@
             log('🔧 Inicializando aplicación...');
             actualizarContador();
             
-            // Verificar el estado inicial del medidor
             log('📊 Estado inicial del medidor:', {
                 value: medidorInput.value,
                 status: medidorStatus.textContent
             });
 
             log('✅ Aplicación inicializada correctamente');
-            log('💡 Escribe un número de lote en el buscador para comenzar');
+            log('💡 Haz clic en el buscador para ver todos los lotes disponibles');
 
             // ============================================
             // CÓDIGO DE CÁMARA (MANTENIDO)
@@ -863,7 +905,7 @@
                     });
             });
 
-            log('🎯 Aplicación lista. Escribe un número de lote para buscar y seleccionar.');
+            log('🎯 Aplicación lista. Haz clic en el buscador para ver todos los lotes disponibles.');
         });
     </script>
 @stop
