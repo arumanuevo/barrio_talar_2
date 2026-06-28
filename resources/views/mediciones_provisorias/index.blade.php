@@ -56,7 +56,7 @@
             margin-left: 10px;
         }
 
-        /* Estilos para el buscador con datalist */
+        /* Estilos para el buscador con lista personalizada */
         .searchable-select-wrapper {
             position: relative;
             width: 100%;
@@ -82,7 +82,68 @@
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
         }
 
-        .searchable-select-wrapper .selected-lote-display {
+        /* Lista de sugerencias personalizada */
+        .suggestions-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 250px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ced4da;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+        }
+
+        .suggestions-list.show {
+            display: block;
+        }
+
+        .suggestions-list .suggestion-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .suggestions-list .suggestion-item:hover {
+            background-color: #0d6efd;
+            color: white;
+        }
+
+        .suggestions-list .suggestion-item .badge-medido {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background-color: #198754;
+            color: white;
+        }
+
+        .suggestions-list .suggestion-item .badge-sin-medir {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background-color: #ffc107;
+            color: #000;
+        }
+
+        .suggestions-list .suggestion-item .badge-oculto {
+            display: none;
+        }
+
+        .suggestions-list .no-results {
+            padding: 12px;
+            text-align: center;
+            color: #6c757d;
+        }
+
+        .selected-lote-display {
             margin-top: 0.5rem;
             padding: 0.375rem 0.75rem;
             background-color: #e9ecef;
@@ -91,7 +152,7 @@
             display: none;
         }
 
-        .searchable-select-wrapper .selected-lote-display.visible {
+        .selected-lote-display.visible {
             display: block;
         }
 
@@ -170,25 +231,14 @@
 
                             <div class="form-group">
                                 <label>Nº de Lote</label>
-                                <!-- Buscador con datalist -->
+                                <!-- Buscador con lista personalizada -->
                                 <div class="searchable-select-wrapper">
                                     <input type="text" 
                                            id="buscadorLotes" 
                                            class="form-control" 
                                            placeholder="Escriba el número de lote para buscar..." 
-                                           autocomplete="off"
-                                           list="listaLotes">
-                                    <datalist id="listaLotes">
-                                        @foreach($lotes as $lote)
-                                            @if($lote->lote != '0')
-                                                <option value="{{ $lote->lote }}" 
-                                                        data-tiene-medicion="{{ $lote->tiene_medicion ? 'true' : 'false' }}">
-                                                    Lote {{ $lote->lote }} 
-                                                    {{ $lote->tiene_medicion ? '✓' : '' }}
-                                                </option>
-                                            @endif
-                                        @endforeach
-                                    </datalist>
+                                           autocomplete="off">
+                                    <div id="suggestionsList" class="suggestions-list"></div>
                                     <div id="selectedLoteDisplay" class="selected-lote-display">
                                         <i class="bi bi-check-circle-fill text-success"></i>
                                         Lote seleccionado: <span id="selectedLoteText">-</span>
@@ -333,13 +383,30 @@
                 log('Debug panel toggled');
             });
 
-            log('🚀 Iniciando aplicación de medición provisoria con buscador');
+            log('🚀 Iniciando aplicación de medición provisoria con buscador personalizado');
             log('📋 DOM completamente cargado');
+
+            // ============================================
+            // DATOS DE LOTES DESDE PHP
+            // ============================================
+            const lotesData = [
+                @foreach($lotes as $lote)
+                    @if($lote->lote != '0')
+                        {
+                            lote: "{{ $lote->lote }}",
+                            tieneMedicion: {{ $lote->tiene_medicion ? 'true' : 'false' }}
+                        },
+                    @endif
+                @endforeach
+            ];
+
+            log('📊 Datos de lotes cargados:', 'info', { total: lotesData.length });
 
             // ============================================
             // REFERENCIAS A ELEMENTOS
             // ============================================
             const buscadorInput = document.getElementById('buscadorLotes');
+            const suggestionsList = document.getElementById('suggestionsList');
             const hiddenSelect = document.getElementById('selectorLotes');
             const selectedLoteDisplay = document.getElementById('selectedLoteDisplay');
             const selectedLoteText = document.getElementById('selectedLoteText');
@@ -351,19 +418,47 @@
             const video = document.getElementById('webcam');
             const canvas = document.getElementById('canvas');
             const downloadPhotoLink = document.getElementById('download-photo');
-            const datalist = document.getElementById('listaLotes');
 
             log('📌 Elementos encontrados:', {
                 buscador: !!buscadorInput,
+                suggestionsList: !!suggestionsList,
                 hiddenSelect: !!hiddenSelect,
-                datalist: !!datalist,
-                checkbox: !!mostrarSoloSinMedicionCheckbox,
-                opcionesDatalist: datalist ? datalist.options.length : 0
+                checkbox: !!mostrarSoloSinMedicionCheckbox
             });
 
             let stream;
             let currentPhotoData = null;
             let currentPhotoName = null;
+
+            // ============================================
+            // FUNCIONES DE FILTRO Y BÚSQUEDA
+            // ============================================
+            function getLotesFiltrados() {
+                const soloSinMedicion = mostrarSoloSinMedicionCheckbox.checked;
+                return lotesData.filter(lote => {
+                    if (soloSinMedicion) {
+                        return !lote.tieneMedicion;
+                    }
+                    return true;
+                });
+            }
+
+            function buscarLotes(termino) {
+                const filtrados = getLotesFiltrados();
+                if (!termino || termino.trim() === '') {
+                    return filtrados.slice(0, 20); // Mostrar primeros 20
+                }
+                const busqueda = termino.toLowerCase().trim();
+                return filtrados.filter(lote => 
+                    lote.lote.toLowerCase().includes(busqueda)
+                ).slice(0, 20); // Limitar a 20 resultados
+            }
+
+            function actualizarContador() {
+                const filtrados = getLotesFiltrados();
+                contadorLotes.textContent = `Mostrando ${filtrados.length} lotes disponibles`;
+                log('📊 Contador actualizado:', 'info', { total: filtrados.length });
+            }
 
             // ============================================
             // FUNCIÓN PARA CARGAR MEDIDOR
@@ -406,119 +501,122 @@
             }
 
             // ============================================
-            // FILTRO DE OPCIONES DEL DATALIST
+            // RENDERIZAR SUGERENCIAS
             // ============================================
-            function filtrarOpcionesDatalist() {
-                const mostrarSoloSinMedicion = mostrarSoloSinMedicionCheckbox.checked;
-                const options = datalist.options;
-                let opcionesVisibles = 0;
+            function renderSuggestions(resultados) {
+                suggestionsList.innerHTML = '';
+                
+                if (resultados.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.className = 'no-results';
+                    noResults.textContent = 'No se encontraron lotes';
+                    suggestionsList.appendChild(noResults);
+                    suggestionsList.classList.add('show');
+                    return;
+                }
 
-                log(`🔍 Aplicando filtro al datalist: mostrarSoloSinMedicion = ${mostrarSoloSinMedicion}`, 'info');
-
-                for (let i = 0; i < options.length; i++) {
-                    const option = options[i];
-                    const tieneMedicion = option.dataset.tieneMedicion === 'true';
-                    const debeMostrar = !mostrarSoloSinMedicion || !tieneMedicion;
+                resultados.forEach(lote => {
+                    const item = document.createElement('div');
+                    item.className = 'suggestion-item';
                     
-                    option.style.display = debeMostrar ? '' : 'none';
-                    if (debeMostrar) opcionesVisibles++;
-                }
-
-                // Actualizar contador
-                contadorLotes.textContent = `Mostrando ${opcionesVisibles} lotes disponibles`;
-                log(`📊 Filtro aplicado: ${opcionesVisibles} opciones visibles`, 'info');
-
-                // Si el valor actual del buscador no está visible, limpiar selección
-                const valorActual = buscadorInput.value;
-                if (valorActual) {
-                    let existeVisible = false;
-                    for (let i = 0; i < options.length; i++) {
-                        if (options[i].value === valorActual && options[i].style.display !== 'none') {
-                            existeVisible = true;
-                            break;
-                        }
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = `Lote ${lote.lote}`;
+                    
+                    const badge = document.createElement('span');
+                    if (lote.tieneMedicion) {
+                        badge.className = 'badge-medido';
+                        badge.textContent = '✓ Medido';
+                    } else {
+                        badge.className = 'badge-sin-medir';
+                        badge.textContent = 'Sin medición';
                     }
-                    if (!existeVisible) {
-                        log('⚠️ El lote seleccionado ya no está visible', 'warning');
-                        hiddenSelect.value = '';
-                        selectedLoteDisplay.classList.remove('visible');
-                        medidorInput.value = '';
-                        medidorStatus.textContent = '⚠️ Seleccione un lote';
-                        medidorStatus.style.color = '#ffc107';
-                    }
-                }
+                    
+                    item.appendChild(textSpan);
+                    item.appendChild(badge);
+                    
+                    item.addEventListener('click', function() {
+                        seleccionarLote(lote.lote);
+                    });
+                    
+                    suggestionsList.appendChild(item);
+                });
+                
+                suggestionsList.classList.add('show');
+            }
+
+            // ============================================
+            // SELECCIONAR LOTE
+            // ============================================
+            function seleccionarLote(valor) {
+                log('📌 Seleccionando lote:', 'info', { valor });
+                
+                hiddenSelect.value = valor;
+                buscadorInput.value = valor;
+                selectedLoteText.textContent = valor;
+                selectedLoteDisplay.classList.add('visible');
+                loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
+                loteStatus.style.color = '#198754';
+                
+                // Ocultar sugerencias
+                suggestionsList.classList.remove('show');
+                
+                // Cargar medidor
+                cargarMedidor(valor);
             }
 
             // ============================================
             // EVENTOS DEL BUSCADOR
             // ============================================
             buscadorInput.addEventListener('input', function(e) {
-                const valor = this.value.trim();
-                log('🔎 Buscando lote:', 'info', { valor });
+                const termino = this.value;
+                log('🔎 Buscando:', 'info', { termino });
                 
-                // Buscar en el datalist si existe la opción y está visible
-                let encontrado = false;
-                for (let i = 0; i < datalist.options.length; i++) {
-                    const opt = datalist.options[i];
-                    if (opt.value === valor && opt.style.display !== 'none') {
-                        encontrado = true;
-                        break;
+                if (termino === '') {
+                    suggestionsList.classList.remove('show');
+                    // Limpiar selección si el campo está vacío
+                    if (hiddenSelect.value) {
+                        hiddenSelect.value = '';
+                        selectedLoteDisplay.classList.remove('visible');
+                        medidorInput.value = '';
+                        medidorStatus.textContent = '⚠️ Seleccione un lote';
+                        medidorStatus.style.color = '#ffc107';
+                        loteStatus.textContent = 'Escriba un número de lote para buscar';
+                        loteStatus.style.color = '#6c757d';
                     }
+                    return;
                 }
                 
-                if (encontrado && valor !== '') {
-                    // Seleccionar el lote
-                    hiddenSelect.value = valor;
-                    selectedLoteText.textContent = valor;
-                    selectedLoteDisplay.classList.add('visible');
-                    loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
-                    loteStatus.style.color = '#198754';
-                    
-                    log('📌 Lote seleccionado desde buscador:', 'success', { valor });
-                    cargarMedidor(valor);
-                } else if (valor === '') {
-                    // Limpiar selección
-                    hiddenSelect.value = '';
-                    selectedLoteDisplay.classList.remove('visible');
-                    medidorInput.value = '';
-                    medidorStatus.textContent = '⚠️ Seleccione un lote';
-                    medidorStatus.style.color = '#ffc107';
-                    loteStatus.textContent = 'Escriba un número de lote para buscar';
-                    loteStatus.style.color = '#6c757d';
+                const resultados = buscarLotes(termino);
+                log('📊 Resultados encontrados:', 'info', { count: resultados.length });
+                
+                if (resultados.length > 0) {
+                    renderSuggestions(resultados);
                 } else {
-                    // Búsqueda en curso pero no coincidencia exacta
-                    loteStatus.textContent = `🔍 Buscando "${valor}"...`;
-                    loteStatus.style.color = '#ffc107';
-                    // Limpiar selección anterior
-                    hiddenSelect.value = '';
-                    selectedLoteDisplay.classList.remove('visible');
-                    medidorInput.value = '';
-                    medidorStatus.textContent = '⚠️ Seleccione un lote';
-                    medidorStatus.style.color = '#ffc107';
+                    renderSuggestions([]);
                 }
             });
 
-            // También permitir selección desde el datalist con click
-            buscadorInput.addEventListener('change', function(e) {
-                const valor = this.value.trim();
-                if (valor) {
-                    // Verificar si existe en el datalist y está visible
-                    let existe = false;
-                    for (let i = 0; i < datalist.options.length; i++) {
-                        if (datalist.options[i].value === valor && datalist.options[i].style.display !== 'none') {
-                            existe = true;
-                            break;
+            // Cerrar sugerencias al hacer click fuera
+            document.addEventListener('click', function(e) {
+                const wrapper = document.querySelector('.searchable-select-wrapper');
+                if (!wrapper.contains(e.target)) {
+                    suggestionsList.classList.remove('show');
+                }
+            });
+
+            // Seleccionar con Enter
+            buscadorInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const termino = this.value.trim();
+                    if (termino) {
+                        // Buscar si existe un lote que coincida exactamente
+                        const resultados = buscarLotes(termino);
+                        if (resultados.length > 0) {
+                            // Seleccionar el primero
+                            seleccionarLote(resultados[0].lote);
                         }
                     }
-                    if (existe) {
-                        hiddenSelect.value = valor;
-                        selectedLoteText.textContent = valor;
-                        selectedLoteDisplay.classList.add('visible');
-                        loteStatus.textContent = `✅ Lote ${valor} seleccionado`;
-                        loteStatus.style.color = '#198754';
-                        log('📌 Lote seleccionado por cambio:', 'success', { valor });
-                        cargarMedidor(valor);
-                    }
+                    e.preventDefault();
                 }
             });
 
@@ -527,16 +625,25 @@
             // ============================================
             mostrarSoloSinMedicionCheckbox.addEventListener('change', function() {
                 log(`🔄 Checkbox cambiado: ${this.checked ? '✓ Marcado' : '✗ Desmarcado'}`, 'info');
-                filtrarOpcionesDatalist();
+                actualizarContador();
+                
+                // Si hay un término de búsqueda, actualizar sugerencias
+                const termino = buscadorInput.value;
+                if (termino) {
+                    const resultados = buscarLotes(termino);
+                    if (resultados.length > 0) {
+                        renderSuggestions(resultados);
+                    } else {
+                        renderSuggestions([]);
+                    }
+                }
             });
 
             // ============================================
             // INICIALIZACIÓN
             // ============================================
             log('🔧 Inicializando aplicación...');
-            
-            // Aplicar filtro inicial
-            filtrarOpcionesDatalist();
+            actualizarContador();
             
             // Verificar el estado inicial del medidor
             log('📊 Estado inicial del medidor:', {
@@ -572,7 +679,6 @@
                     })
                     .catch(err => {
                         log('❌ Error al acceder a la cámara con constraint exacto:', 'error', err);
-                        // Fallback sin la restricción exacta
                         navigator.mediaDevices.getUserMedia({ video: true, audio: false })
                             .then(s => {
                                 log('✅ Cámara iniciada en modo fallback', 'success');
@@ -582,13 +688,12 @@
                                 cameraStarted();
                             })
                             .catch(error => {
-                                log('❌ No se pudo acceder a la cámara en ningún modo:', 'error', error);
+                                log('❌ No se pudo acceder a la cámara:', 'error', error);
                                 displayError(error);
                             });
                     });
             }
 
-            // Función para detener la cámara
             function stopCamera() {
                 log('📷 Deteniendo cámara', 'info');
                 if (stream) {
@@ -598,9 +703,8 @@
                 cameraStopped();
             }
 
-            // Función que se llama cuando la cámara inicia correctamente
             function cameraStarted() {
-                log('📷 Cámara activa y reproduciendo', 'success');
+                log('📷 Cámara activa', 'success');
                 $("#errorMsg").addClass("d-none");
                 $('.flash').hide();
                 $("#webcam-caption").html("Activada");
@@ -612,7 +716,6 @@
                 window.scrollTo(0, 0);
             }
 
-            // Función que se llama cuando se detiene la cámara
             function cameraStopped() {
                 log('📷 Cámara detenida', 'info');
                 $("#errorMsg").addClass("d-none");
@@ -635,7 +738,6 @@
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 currentPhotoData = canvas.toDataURL('image/png');
 
-                // Generar el nombre de la foto
                 let codLote = hiddenSelect.value;
                 let fechaToma = document.getElementById('fecha_medicion').value;
                 let fechaFormateada = fechaToma.replace(/-/g, '');
@@ -647,7 +749,6 @@
                 afterTakePhoto();
             });
 
-            // Función para descargar la foto
             downloadPhotoLink.addEventListener('click', function(e) {
                 e.preventDefault();
                 if (currentPhotoData) {
@@ -664,7 +765,6 @@
                 }
             });
 
-            // Función que se llama antes de capturar la foto
             function beforeTakePhoto() {
                 log('📸 Preparando captura...', 'info');
                 $('.flash')
@@ -677,9 +777,8 @@
                 $('#cameraControls').addClass('d-none');
             }
 
-            // Función que se llama después de capturar la foto
             function afterTakePhoto() {
-                log('📸 Captura completada, mostrando vista previa', 'success');
+                log('📸 Captura completada', 'success');
                 video.pause();
                 $('#canvas').removeClass('d-none');
                 $('#take-photo').addClass('d-none');
@@ -689,14 +788,12 @@
                 $('#cameraControls').removeClass('d-none');
             }
 
-            // Salir de la cámara
             document.getElementById('exit-app').addEventListener('click', function() {
                 log('🚪 Saliendo de la cámara', 'info');
                 stopCamera();
                 removeCapture();
             });
 
-            // Función para resetear la vista de captura
             function removeCapture() {
                 log('🔄 Resetear vista de captura', 'info');
                 $('#canvas').addClass('d-none');
@@ -708,7 +805,6 @@
                 $('#resume-camera').addClass('d-none');
             }
 
-            // Reanudar cámara
             document.getElementById('resume-camera').addEventListener('click', function() {
                 log('▶️ Reanudando cámara', 'info');
                 $('#canvas').addClass('d-none');
@@ -719,7 +815,6 @@
                 video.play();
             });
 
-            // Función para mostrar errores
             function displayError(err = '') {
                 log('❌ Mostrando error:', 'error', err);
                 if (err !== '') {
@@ -734,7 +829,6 @@
             document.getElementById('btnGuardarMedicion').addEventListener('click', function() {
                 log('💾 Intentando guardar medición', 'info');
                 
-                // Asegurar que el hidden select tenga el valor correcto
                 if (!hiddenSelect.value) {
                     log('⚠️ No hay lote seleccionado', 'warning');
                     medidorStatus.textContent = '⚠️ Seleccione un lote primero';
@@ -745,7 +839,6 @@
                 const form = document.getElementById('medicionProvisoriaForm');
                 const formData = new FormData(form);
 
-                // Log de los datos del formulario
                 const formDataObj = {};
                 for (let [key, value] of formData.entries()) {
                     formDataObj[key] = value;
@@ -765,7 +858,6 @@
                             message: error.message,
                             response: error.response?.data
                         });
-                        // Mostrar error
                         medidorStatus.textContent = `❌ Error: ${error.response?.data?.message || error.message}`;
                         medidorStatus.style.color = '#dc3545';
                     });
