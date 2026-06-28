@@ -424,35 +424,36 @@
                         'Accept': 'application/json'
                     }
                 })
-                .then(response => {
-                    log('✅ Petición exitosa', 'success', response.data);
-                    const data = response.data;
-                    
-                    // Actualizar campos
-                    codMedidorInput.value = data.medidor || 'N/A';
-                    tomaAntInput.value = data.fecha_anterior || '';
-                    tomaAnteriorInput.value = data.medidor_anterior || 0;
-                    
-                    // Calcular vencimiento
-                    if (fechaTomaInput.value && periodoInput.value) {
-                        calcularVencimiento();
-                    }
-                    
-                    medidorStatus.textContent = `✅ Medidor: ${data.medidor || 'N/A'}`;
-                    medidorStatus.style.color = '#198754';
-                    loteStatus.textContent = `✅ Lote ${valor} cargado`;
-                    loteStatus.style.color = '#198754';
-                    
-                    // Habilitar botones
-                    btnActivarCamara.disabled = false;
-                    btnGuardar.disabled = false;
-                    
-                    log('📊 Datos del lote cargados correctamente', 'success', {
-                        medidor: data.medidor,
-                        fecha_anterior: data.fecha_anterior,
-                        medidor_anterior: data.medidor_anterior
-                    });
-                })
+                // En la función obtenerDatosLote()
+.then(response => {
+    log('✅ Petición exitosa', 'success', response.data);
+    const data = response.data;
+    
+    // Actualizar campos usando los nombres correctos
+    codMedidorInput.value = data.medidor || 'N/A';
+    tomaAntInput.value = data.fecha_anterior || '';
+    tomaAnteriorInput.value = data.medidor_anterior || 0;
+    
+    // Calcular vencimiento
+    if (fechaTomaInput.value && periodoInput.value) {
+        calcularVencimiento();
+    }
+    
+    medidorStatus.textContent = `✅ Medidor: ${data.medidor || 'N/A'}`;
+    medidorStatus.style.color = '#198754';
+    loteStatus.textContent = `✅ Lote ${valor} cargado`;
+    loteStatus.style.color = '#198754';
+    
+    // Habilitar botones
+    btnActivarCamara.disabled = false;
+    btnGuardar.disabled = false;
+    
+    log('📊 Datos del lote cargados correctamente', 'success', {
+        medidor: data.medidor,
+        fecha_anterior: data.fecha_anterior,
+        medidor_anterior: data.medidor_anterior
+    });
+})
                 .catch(error => {
                     log('❌ Error en la petición', 'error', {
                         message: error.message,

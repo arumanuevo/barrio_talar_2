@@ -103,23 +103,58 @@ class ApiGeneral extends Controller
 
    
 
-    public function getMedidor(Request $request )
+    public function getMedidor(Request $request)
     {
-      
-        $numLote = $request->numLote; 
-        $seccion = $request->seccion;
+        $numLote = $request->input('lote'); // Cambiar de 'numLote' a 'lote' para coincidir con el frontend
         
-        $lotes = User::where('lote', $numLote)
-                      ->first();
-        //$tokenAcceso = $usuario->createToken('TokenName')->plainTextToken;
-       // dd($token);
+        // Si no viene 'lote', intentar con 'numLote' por compatibilidad
+        if (!$numLote) {
+            $numLote = $request->input('numLote');
+        }
+        
+        \Log::info('getMedidor - Buscando lote:', ['numLote' => $numLote]);
+        
+        if (!$numLote) {
+            return response()->json([
+                'msg' => 'Falta el parámetro lote',
+                'error' => 'Se requiere el número de lote'
+            ], 400);
+        }
+        
+        // Buscar el usuario por lote
+        $usuario = User::where('lote', $numLote)->first();
+        
+        if (!$usuario) {
+            return response()->json([
+                'msg' => 'Lote no encontrado',
+                'error' => 'No existe un usuario con ese lote'
+            ], 404);
+        }
+        
+        // Obtener la última medición para este lote
         $ultimaMedicion = Medicion::where('lote', $numLote)
-                                    ->orderBy('id','desc')->first();
-     
-        $respuesta = response()->json(array('msg'=> $lotes,'ultimaMedicion'=>$ultimaMedicion), 200);
-        return $respuesta;
+                                    ->orderBy('id', 'desc')
+                                    ->first();
+        
+        // Preparar la respuesta con los datos que espera el frontend
+        $respuesta = [
+            'msg' => null,
+            'ultimaMedicion' => $ultimaMedicion ? [
+                'id' => $ultimaMedicion->id,
+                'fecha' => $ultimaMedicion->fecha,
+                'valormedido' => $ultimaMedicion->valormedido,
+                'consumo' => $ultimaMedicion->consumo,
+            ] : null,
+            // Campos que espera el frontend
+            'medidor' => $usuario->medidor ?? 'N/A',
+            'fecha_anterior' => $ultimaMedicion ? $ultimaMedicion->fecha : null,
+            'medidor_anterior' => $ultimaMedicion ? $ultimaMedicion->valormedido : 0,
+        ];
+        
+        \Log::info('getMedidor - Respuesta:', $respuesta);
+        
+        return response()->json($respuesta, 200);
     }
-    
     public function postBorrarMedicion(Request $request){
       $id = $request->id;
       $res = Medicion::where('id',$id)->delete();
