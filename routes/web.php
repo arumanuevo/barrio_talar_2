@@ -117,9 +117,7 @@ Route::post('/subir-foto-medicion', 'App\Http\Controllers\ImagenController@subir
     Route::get('/mediciones-provisorias/listado', [MedicionProvisoriaController::class, 'indexListado'])->name('mediciones_provisorias.listado');
 
     
-  // Usar:
-Route::get('/importar-mediciones', [App\Http\Controllers\ImportMedicionesController::class, 'showImportForm'])
-->name('import.mediciones.form');
+
 
 // ✅ RUTA DE PRUEBA 1 - Verificar que el archivo api.php se carga
 Route::get('/test-simple', function() {
@@ -128,3 +126,12 @@ Route::get('/test-simple', function() {
         'timestamp' => date('Y-m-d H:i:s')
     ]);
 });
+// ✅ RUTA DE PRUEBA 2 - Probar controlador simple
+Route::get('/test-controller', [App\Http\Controllers\ImportMedicionesController::class, 'test']);
+
+// ✅ RUTA DE PRUEBA 3 - Probar el método import con datos de prueba
+Route::post('/test-import', [App\Http\Controllers\ImportMedicionesController::class, 'testImport']);
+
+// Ruta de importación real
+Route::post('/import-mediciones/import', [App\Http\Controllers\ImportMedicionesController::class, 'import'])
+    ->name('api.import.mediciones.import');
