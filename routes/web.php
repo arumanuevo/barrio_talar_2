@@ -120,3 +120,11 @@ Route::post('/subir-foto-medicion', 'App\Http\Controllers\ImagenController@subir
   // Usar:
 Route::get('/importar-mediciones', [App\Http\Controllers\ImportMedicionesController::class, 'showImportForm'])
 ->name('import.mediciones.form');
+
+// ✅ RUTA DE PRUEBA 1 - Verificar que el archivo api.php se carga
+Route::get('/test-simple', function() {
+    return response()->json([
+        'message' => '✅ Ruta API funcionando',
+        'timestamp' => date('Y-m-d H:i:s')
+    ]);
+});
