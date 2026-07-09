@@ -817,15 +817,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }))
         }));
 
-        const token = document.querySelector('meta[name="api-token"]')?.content || '';
+        // ✅ CSRF Token para la petición
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
         fetch('/api/import-mediciones/import', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + token,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                'X-CSRF-TOKEN': csrfToken
             },
             body: JSON.stringify({ data: payload })
         })

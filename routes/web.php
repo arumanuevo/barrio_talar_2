@@ -117,6 +117,6 @@ Route::post('/subir-foto-medicion', 'App\Http\Controllers\ImagenController@subir
     Route::get('/mediciones-provisorias/listado', [MedicionProvisoriaController::class, 'indexListado'])->name('mediciones_provisorias.listado');
 
     
-    Route::get('/importar-mediciones', [App\Http\Controllers\ImportMedicionesController::class, 'showImportForm'])
-    ->name('import.mediciones.form')
-    ->middleware('auth');
+  // Usar:
+Route::get('/importar-mediciones', [App\Http\Controllers\ImportMedicionesController::class, 'showImportForm'])
+->name('import.mediciones.form');

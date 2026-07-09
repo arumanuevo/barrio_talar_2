@@ -36,8 +36,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/postGuardarFacturas', [App\Http\Controllers\ApiGeneral::class, 'postGuardarFacturas'])->name('postGuardarFacturas');
 
     // ✅ IMPORTACIÓN DE MEDICIONES - DENTRO DE AUTH
-    Route::prefix('import-mediciones')->group(function () {
-        Route::post('/import', [App\Http\Controllers\ImportMedicionesController::class, 'import'])
-            ->name('api.import.mediciones.import');
-    });
+    
 });
+
+// ✅ Ruta de importación SIN autenticación (para pruebas)
+Route::post('/import-mediciones/import', [App\Http\Controllers\ImportMedicionesController::class, 'import'])
+    ->name('api.import.mediciones.import');
