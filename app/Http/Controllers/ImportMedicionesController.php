@@ -248,6 +248,9 @@ class ImportMedicionesController extends Controller
     {
         $request->validate([
             'data' => 'required|array',
+            'data.*.lote' => 'required|string',
+            'data.*.medidor' => 'required|string',
+            'data.*.mediciones' => 'required|array|min:1',
         ]);
 
         $importData = $request->data;
@@ -256,13 +259,25 @@ class ImportMedicionesController extends Controller
         $errors = [];
 
         DB::beginTransaction();
+
         try {
             foreach ($importData as $item) {
                 $lote = $item['lote'];
                 $medidor = $item['medidor'];
-                $mediciones = $item['mediciones'];
 
-                // Obtener la última medición existente para este lote
+                $user = User::where('lote', $lote)->first();
+                if (!$user) {
+                    $errors[] = "Lote $lote: No encontrado en el sistema.";
+                    $errorCount++;
+                    continue;
+                }
+
+                if ($user->medidor != $medidor) {
+                    $errors[] = "Lote $lote: Medidor $medidor no coincide con el registrado ({$user->medidor}).";
+                    $errorCount++;
+                    continue;
+                }
+
                 $lastMedicion = Medicion::where('lote', $lote)
                                         ->orderBy('fecha', 'desc')
                                         ->first();
@@ -271,23 +286,36 @@ class ImportMedicionesController extends Controller
                 $medidaAnt = $lastMedicion ? $lastMedicion->valormedido : 0;
                 $tomaAnt = $lastMedicion ? $lastMedicion->fecha : null;
 
-                foreach ($mediciones as $med) {
-                    $fecha = $med['fecha'];
-                    $valor = $med['valor'];
+                foreach ($item['mediciones'] as $med) {
+                    $fechaStr = $med['fecha'] ?? null;
+                    $valor = (float) $med['valor'];
 
-                    // Verificar duplicado
+                    if (!$fechaStr) {
+                        $errors[] = "Lote $lote: Fecha inválida.";
+                        $errorCount++;
+                        continue;
+                    }
+
+                    try {
+                        $fecha = Carbon::parse($fechaStr)->startOfDay();
+                    } catch (\Exception $e) {
+                        $errors[] = "Lote $lote: Formato de fecha inválido ($fechaStr).";
+                        $errorCount++;
+                        continue;
+                    }
+
                     $exists = Medicion::where('lote', $lote)
                                         ->where('fecha', $fecha)
                                         ->exists();
                     if ($exists) {
-                        $errors[] = "Lote $lote: Ya existe medición para la fecha $fecha. Se omite.";
+                        $errors[] = "Lote $lote: Ya existe medición para $fechaStr. Se omite.";
                         $errorCount++;
                         continue;
                     }
 
                     $consumo = $valor - $medidaAnt;
                     if ($consumo < 0) {
-                        $errors[] = "Lote $lote: Consumo negativo ($consumo) para la fecha $fecha. Se omite.";
+                        $errors[] = "Lote $lote: Consumo negativo ($consumo) para $fechaStr.";
                         $errorCount++;
                         continue;
                     }
