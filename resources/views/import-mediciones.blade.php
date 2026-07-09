@@ -4,13 +4,10 @@
 @section('title', 'Importar Mediciones Masivas')
 
 @section('content')
+<!-- Bootstrap Icons CDN -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
 <style>
-    /* Prevenir selección de texto en drag */
-    body {
-        user-select: none;
-    }
     .drop-zone {
         border: 2px dashed #6c757d;
         border-radius: 8px;
@@ -83,43 +80,6 @@
         font-size: 0.85rem;
         color: #6c757d;
     }
-    .drag-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.3);
-        z-index: 9999;
-        display: none;
-        justify-content: center;
-        align-items: center;
-        color: white;
-        font-size: 2rem;
-        pointer-events: none;
-    }
-    .drag-overlay.show {
-        display: flex;
-    }
-    .drag-overlay .content {
-        background: rgba(0,0,0,0.7);
-        padding: 40px 60px;
-        border-radius: 16px;
-        text-align: center;
-    }
-    .drag-overlay .content i {
-        font-size: 4rem;
-        display: block;
-        margin-bottom: 15px;
-    }
-    /* Estilos para los selects de mapeo */
-    .mapping-select {
-        width: 100%;
-        padding: 0.375rem 0.75rem;
-        font-size: 0.9rem;
-        border-radius: 0.25rem;
-        border: 1px solid #ced4da;
-    }
     .mapping-label {
         font-weight: 500;
         font-size: 0.9rem;
@@ -132,14 +92,116 @@
         display: block;
         margin-top: 0.25rem;
     }
+    .alert {
+        padding: 0.75rem 1.25rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1rem;
+    }
+    .alert-success { background: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+    .alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .alert-warning { background: #fff3cd; color: #856404; border: 1px solid #ffecb5; }
+    .alert-info { background: #cfe2ff; color: #084298; border: 1px solid #b6d4fe; }
+    .btn {
+        display: inline-block;
+        padding: 0.375rem 0.75rem;
+        font-size: 1rem;
+        border-radius: 0.25rem;
+        border: 1px solid transparent;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.15s;
+    }
+    .btn-primary { background: #0d6efd; color: white; border-color: #0d6efd; }
+    .btn-primary:hover { background: #0b5ed7; }
+    .btn-secondary { background: #6c757d; color: white; border-color: #6c757d; }
+    .btn-secondary:hover { background: #5a6268; }
+    .btn-success { background: #198754; color: white; border-color: #198754; }
+    .btn-success:hover { background: #157347; }
+    .btn-danger { background: #dc3545; color: white; border-color: #dc3545; }
+    .btn-danger:hover { background: #b02a37; }
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+    .form-select {
+        display: block;
+        width: 100%;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.9rem;
+        border-radius: 0.25rem;
+        border: 1px solid #ced4da;
+        background: white;
+    }
+    .form-label {
+        font-weight: 500;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+    .text-muted { color: #6c757d; }
+    .mt-1 { margin-top: 0.25rem; }
+    .mt-2 { margin-top: 0.5rem; }
+    .mt-3 { margin-top: 1rem; }
+    .mt-4 { margin-top: 1.5rem; }
+    .mb-0 { margin-bottom: 0; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-3 { margin-bottom: 1rem; }
+    .ms-2 { margin-left: 0.5rem; }
+    .float-end { float: right; }
+    .d-flex { display: flex; }
+    .gap-2 { gap: 0.5rem; }
+    .flex-wrap { flex-wrap: wrap; }
+    .row { display: flex; flex-wrap: wrap; margin: -0.5rem; }
+    .col-md-3 { flex: 0 0 25%; padding: 0.5rem; }
+    .col-md-4 { flex: 0 0 33.333%; padding: 0.5rem; }
+    .col-md-6 { flex: 0 0 50%; padding: 0.5rem; }
+    .col-md-11 { flex: 0 0 91.666%; padding: 0.5rem; }
+    .col-12 { flex: 0 0 100%; padding: 0.5rem; }
+    .text-center { text-align: center; }
+    .text-success { color: #198754; }
+    .text-danger { color: #dc3545; }
+    .text-primary { color: #0d6efd; }
+    .badge { display: inline-block; padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; }
+    .bg-success { background: #198754; color: white; }
+    .bg-danger { background: #dc3545; color: white; }
+    .bg-secondary { background: #6c757d; color: white; }
+    .bg-warning { background: #ffc107; color: #212529; }
+    .bg-primary { background: #0d6efd; color: white; }
+    .progress { height: 1.5rem; background: #e9ecef; border-radius: 0.25rem; overflow: hidden; }
+    .progress-bar { height: 100%; background: #0d6efd; color: white; text-align: center; line-height: 1.5rem; transition: width 0.3s; }
+    .progress-bar-striped { background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent); }
+    .progress-bar-animated { animation: progress-bar-stripes 1s linear infinite; }
+    @keyframes progress-bar-stripes { 0% { background-position: 1rem 0; } 100% { background-position: 0 0; } }
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 0.5rem; border: 1px solid #dee2e6; }
+    .table-striped tbody tr:nth-of-type(odd) { background: #f8f9fa; }
+    .table-bordered { border: 1px solid #dee2e6; }
+    .table-responsive { overflow-x: auto; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 15px; }
+    .card { background: white; border-radius: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .card-header { padding: 1rem; border-bottom: 1px solid #dee2e6; background: #0d6efd; color: white; border-radius: 0.5rem 0.5rem 0 0; }
+    .card-body { padding: 1.25rem; }
+    .card-header .btn-light { background: white; color: #212529; border-color: #f8f9fa; }
+    .card-header .btn-light:hover { background: #e9ecef; }
+    hr { margin: 1.5rem 0; border: 0; border-top: 1px solid #dee2e6; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050; }
+    .modal.show { display: block; }
+    .modal-dialog { position: relative; max-width: 500px; margin: 1.75rem auto; }
+    .modal-content { background: white; border-radius: 0.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    .modal-header { padding: 1rem; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header .btn-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; }
+    .modal-body { padding: 1rem; }
+    .modal-footer { padding: 1rem; border-top: 1px solid #dee2e6; display: flex; justify-content: flex-end; gap: 0.5rem; }
+    .btn-close-white { color: white; }
+    .fs-5 { font-size: 1.25rem; }
+    .p-2 { padding: 0.5rem; }
 </style>
 
 <div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-11">
             <div class="card">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h4><i class="bi bi-file-earmark-excel"></i> Importar Mediciones desde Excel</h4>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="bi bi-file-earmark-excel"></i> Importar Mediciones desde Excel</h4>
                     <a href="{{ route('getTodasMedVista') }}" class="btn btn-light btn-sm">
                         <i class="bi bi-arrow-left"></i> Volver
                     </a>
@@ -147,9 +209,7 @@
                 <div class="card-body">
                     <div id="alertContainer"></div>
 
-                    <!-- ========================================== -->
-                    <!-- PASO 1: SUBIR ARCHIVO                       -->
-                    <!-- ========================================== -->
+                    <!-- PASO 1: SUBIR ARCHIVO -->
                     <div id="step1" class="step">
                         <h5><i class="bi bi-upload"></i> Paso 1: Subir archivo Excel</h5>
                         <p class="text-muted">Selecciona el archivo <strong>.xlsx</strong> o <strong>.xls</strong> con las mediciones.</p>
@@ -175,7 +235,7 @@
                             <i class="bi bi-file-earmark-excel text-success"></i>
                             <span id="fileName"></span>
                             <span class="badge bg-secondary ms-2" id="fileSize"></span>
-                            <button class="btn btn-sm btn-danger float-end" id="btnRemoveFile">
+                            <button class="btn btn-danger btn-sm float-end" id="btnRemoveFile">
                                 <i class="bi bi-x"></i>
                             </button>
                         </div>
@@ -189,9 +249,7 @@
                         </div>
                     </div>
 
-                    <!-- ========================================== -->
-                    <!-- PASO 2: MAPEO DE COLUMNAS                   -->
-                    <!-- ========================================== -->
+                    <!-- PASO 2: MAPEO DE COLUMNAS -->
                     <div id="step2" class="step" style="display:none;">
                         <hr>
                         <h5><i class="bi bi-arrow-left-right"></i> Paso 2: Verificar columnas</h5>
@@ -209,9 +267,7 @@
                         </div>
                     </div>
 
-                    <!-- ========================================== -->
-                    <!-- PASO 3: PREVISUALIZACIÓN                   -->
-                    <!-- ========================================== -->
+                    <!-- PASO 3: PREVISUALIZACIÓN -->
                     <div id="step3" class="step" style="display:none;">
                         <hr>
                         <h5><i class="bi bi-eye"></i> Paso 3: Previsualización y validación</h5>
@@ -238,9 +294,7 @@
                         </div>
                     </div>
 
-                    <!-- ========================================== -->
-                    <!-- PROGRESO                                    -->
-                    <!-- ========================================== -->
+                    <!-- PROGRESO -->
                     <div id="progressContainer" style="display:none;" class="mt-3">
                         <div class="progress">
                             <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
@@ -254,12 +308,12 @@
 </div>
 
 <!-- Modal de éxito -->
-<div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
+<div class="modal" id="successModal" tabindex="-1" style="display:none;">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title"><i class="bi bi-check-circle"></i> Importación completada</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" onclick="document.getElementById('successModal').style.display='none'">&times;</button>
             </div>
             <div class="modal-body" id="successModalBody"></div>
             <div class="modal-footer">
@@ -270,22 +324,21 @@
 </div>
 @endsection
 
-@push('scripts')
-<!-- SheetJS CDN - Cargado antes que cualquier otro script que lo necesite -->
+@section('js')
+<!-- SheetJS CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
 </script>
 
 <script>
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     // PREVENIR DRAG & DROP A NIVEL GLOBAL
     // ============================================
-    $(document).on('dragover dragenter', function(e) {
+    document.addEventListener('dragover', function(e) {
         e.preventDefault();
         e.stopPropagation();
     });
-
-    $(document).on('drop', function(e) {
+    document.addEventListener('drop', function(e) {
         e.preventDefault();
         e.stopPropagation();
     });
@@ -305,59 +358,59 @@ $(document).ready(function() {
     // ============================================
     // ELEMENTOS DOM
     // ============================================
-    const dropZone = $('#dropZone');
-    const fileInput = $('#fileInput');
-    const fileInfo = $('#fileInfo');
-    const fileName = $('#fileName');
-    const fileSize = $('#fileSize');
-    const sheetSelection = $('#sheetSelection');
-    const sheetSelect = $('#sheetSelect');
-    const alertContainer = $('#alertContainer');
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const sheetSelection = document.getElementById('sheetSelection');
+    const sheetSelect = document.getElementById('sheetSelect');
+    const alertContainer = document.getElementById('alertContainer');
 
     // ============================================
     // EVENTOS DE DROP ZONE
     // ============================================
-    dropZone.on('dragover dragenter', function(e) {
+    dropZone.addEventListener('dragover', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        $(this).addClass('dragover');
+        this.classList.add('dragover');
     });
 
-    dropZone.on('dragleave', function(e) {
+    dropZone.addEventListener('dragleave', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        $(this).removeClass('dragover');
+        this.classList.remove('dragover');
     });
 
-    dropZone.on('drop', function(e) {
+    dropZone.addEventListener('drop', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        $(this).removeClass('dragover');
+        this.classList.remove('dragover');
 
-        const files = e.originalEvent.dataTransfer.files;
+        const files = e.dataTransfer.files;
         if (files.length > 0) {
-            fileInput[0].files = files;
+            fileInput.files = files;
             handleFileSelect();
         }
     });
 
-    dropZone.on('click', function() {
+    dropZone.addEventListener('click', function() {
         fileInput.click();
     });
 
-    fileInput.on('change', handleFileSelect);
+    fileInput.addEventListener('change', handleFileSelect);
 
     // ============================================
     // MANEJAR SELECCIÓN DE ARCHIVO
     // ============================================
     function handleFileSelect() {
-        const file = fileInput[0].files[0];
+        const file = fileInput.files[0];
         if (!file) return;
 
         currentFile = file;
-        fileName.text(file.name);
-        fileSize.text((file.size / 1024).toFixed(1) + ' KB');
-        fileInfo.addClass('visible');
+        fileName.textContent = file.name;
+        fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+        fileInfo.classList.add('visible');
 
         showAlert('Archivo seleccionado: ' + file.name, 'success');
 
@@ -373,11 +426,14 @@ $(document).ready(function() {
                     return;
                 }
 
-                sheetSelect.empty();
+                sheetSelect.innerHTML = '';
                 sheetNames.forEach((name, idx) => {
-                    sheetSelect.append(`<option value="${idx}">${name}</option>`);
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = name;
+                    sheetSelect.appendChild(opt);
                 });
-                sheetSelection.show();
+                sheetSelection.style.display = 'block';
 
                 let defaultSheet = 0;
                 sheetNames.forEach((name, idx) => {
@@ -385,7 +441,7 @@ $(document).ready(function() {
                         defaultSheet = idx;
                     }
                 });
-                sheetSelect.val(defaultSheet);
+                sheetSelect.value = defaultSheet;
 
                 showAlert('Archivo cargado. ' + sheetNames.length + ' hoja(s) encontrada(s).', 'info');
                 analyzeSheet();
@@ -409,7 +465,7 @@ $(document).ready(function() {
     function analyzeSheet() {
         if (!workbookData) return;
 
-        currentSheetIndex = parseInt(sheetSelect.val());
+        currentSheetIndex = parseInt(sheetSelect.value);
         const sheetName = sheetNames[currentSheetIndex];
         const worksheet = workbookData.Sheets[sheetName];
 
@@ -425,9 +481,9 @@ $(document).ready(function() {
 
         detectColumns();
 
-        $('#step1').hide();
-        $('#step2').show();
-        $('#step3').hide();
+        document.getElementById('step1').style.display = 'none';
+        document.getElementById('step2').style.display = 'block';
+        document.getElementById('step3').style.display = 'none';
 
         showAlert('Hoja "' + sheetName + '" analizada. ' + rows.length + ' filas de datos.', 'success');
     }
@@ -436,8 +492,8 @@ $(document).ready(function() {
     // DETECTAR COLUMNAS
     // ============================================
     function detectColumns() {
-        const container = $('#mappingContainer');
-        container.empty();
+        const container = document.getElementById('mappingContainer');
+        container.innerHTML = '';
 
         let loteCol = -1,
             medidorCol = -1,
@@ -498,37 +554,48 @@ $(document).ready(function() {
         ];
 
         fields.forEach(field => {
-            const div = $('<div class="col-md-4 mb-3"></div>');
-            div.append(`<label class="mapping-label">${field.label}</label>`);
-            const select = $(`<select class="form-select mapping-select" data-key="${field.key}"></select>`);
-            select.append(`<option value="">-- No usar --</option>`);
+            const div = document.createElement('div');
+            div.className = 'col-md-4 mb-3';
+            div.innerHTML = `<label class="mapping-label">${field.label}</label>`;
+            const select = document.createElement('select');
+            select.className = 'form-select mapping-select';
+            select.dataset.key = field.key;
+            select.innerHTML = `<option value="">-- No usar --</option>`;
             headers.forEach((h, idx) => {
                 const selected = (idx === field.detected) ? 'selected' : '';
                 const display = h || 'Columna ' + (idx + 1);
-                select.append(`<option value="${idx}" ${selected}>${display}</option>`);
+                select.innerHTML += `<option value="${idx}" ${selected}>${display}</option>`;
             });
-            div.append(select);
-            container.append(div);
+            div.appendChild(select);
+            container.appendChild(div);
         });
 
         // Columnas de fechas
-        const fechaDiv = $(`<div class="col-12 mt-3"><hr><h6>Columnas de medición</h6>
-            <p class="text-muted small">Estas columnas contienen los valores de medición para cada fecha.</p></div>`);
-        container.append(fechaDiv);
+        const fechaDiv = document.createElement('div');
+        fechaDiv.className = 'col-12 mt-3';
+        fechaDiv.innerHTML = `<hr><h6>Columnas de medición</h6>
+            <p class="text-muted small">Estas columnas contienen los valores de medición para cada fecha.</p>`;
+        container.appendChild(fechaDiv);
 
         if (fechaCols.length === 0) {
-            container.append(`<div class="col-12 alert alert-warning">No se detectaron columnas de medición.</div>`);
+            const alert = document.createElement('div');
+            alert.className = 'col-12 alert alert-warning';
+            alert.textContent = 'No se detectaron columnas de medición.';
+            container.appendChild(alert);
         } else {
             fechaCols.forEach((colIdx) => {
-                const div = $('<div class="col-md-3 mb-2"></div>');
+                const div = document.createElement('div');
+                div.className = 'col-md-3 mb-2';
                 const headerText = headers[colIdx] || 'Fecha ' + (colIdx + 1);
-                div.append(`<label class="mapping-label">${headerText}</label>`);
                 const sampleVal = rows.length > 0 ? rows[0][colIdx] : 'N/A';
-                div.append(`<span class="mapping-hint">Ej: ${sampleVal}</span>`);
-                const select = $(`<select class="form-select mapping-select" data-fecha="${colIdx}"></select>`);
-                select.append(`<option value="${colIdx}" selected>${headerText}</option>`);
-                div.append(select);
-                container.append(div);
+                div.innerHTML = `
+                    <label class="mapping-label">${headerText}</label>
+                    <span class="mapping-hint">Ej: ${sampleVal}</span>
+                    <select class="form-select mapping-select" data-fecha="${colIdx}">
+                        <option value="${colIdx}" selected>${headerText}</option>
+                    </select>
+                `;
+                container.appendChild(div);
             });
         }
     }
@@ -565,14 +632,14 @@ $(document).ready(function() {
     // ============================================
     function previewData() {
         const mapping = {
-            lote: parseInt($('#mappingContainer select[data-key="lote"]').val()),
-            medidor: parseInt($('#mappingContainer select[data-key="medidor"]').val()),
-            nombre: parseInt($('#mappingContainer select[data-key="nombre"]').val()),
+            lote: parseInt(document.querySelector('#mappingContainer select[data-key="lote"]').value),
+            medidor: parseInt(document.querySelector('#mappingContainer select[data-key="medidor"]').value),
+            nombre: parseInt(document.querySelector('#mappingContainer select[data-key="nombre"]').value),
             fechas: []
         };
 
-        $('#mappingContainer select[data-fecha]').each(function() {
-            const val = $(this).val();
+        document.querySelectorAll('#mappingContainer select[data-fecha]').forEach(function(sel) {
+            const val = sel.value;
             if (val !== '') mapping.fechas.push(parseInt(val));
         });
 
@@ -598,7 +665,7 @@ $(document).ready(function() {
             const nombre = mapping.nombre >= 0 ? String(row[mapping.nombre] || '').trim() : '';
 
             if (!lote) {
-                errors.push(`Fila ${rowIdx + 2}: Lote vacío.`);
+                errors.push('Fila ' + (rowIdx + 2) + ': Lote vacío.');
                 return;
             }
 
@@ -613,7 +680,7 @@ $(document).ready(function() {
             });
 
             if (mediciones.length === 0) {
-                errors.push(`Fila ${rowIdx + 2}: No se encontraron valores.`);
+                errors.push('Fila ' + (rowIdx + 2) + ': No se encontraron valores.');
                 return;
             }
 
@@ -639,9 +706,9 @@ $(document).ready(function() {
     // RENDERIZAR PREVIEW
     // ============================================
     function renderPreview(data, errors) {
-        const tbody = $('#previewBody');
-        const thead = $('#previewHead');
-        tbody.empty();
+        const tbody = document.getElementById('previewBody');
+        const thead = document.getElementById('previewHead');
+        tbody.innerHTML = '';
 
         let headerHtml = '<tr><th>#</th><th>Lote</th><th>Medidor</th><th>Nombre</th>';
         const allDates = new Set();
@@ -656,10 +723,10 @@ $(document).ready(function() {
         });
         const sortedDates = Array.from(allDates).sort();
         sortedDates.forEach(date => {
-            headerHtml += `<th>${date}</th>`;
+            headerHtml += '<th>' + date + '</th>';
         });
         headerHtml += '<th>Estado</th></tr>';
-        thead.html(headerHtml);
+        thead.innerHTML = headerHtml;
 
         let validCount = 0;
         let errorCount = 0;
@@ -671,11 +738,11 @@ $(document).ready(function() {
             else errorCount++;
             totalMediciones += item.mediciones.length;
 
-            let rowHtml = `<tr class="${isValid ? '' : 'table-danger'}">
-                <td>${item.rowIndex}</td>
-                <td><strong>${item.lote}</strong></td>
-                <td>${item.medidor}</td>
-                <td>${item.nombre || '-'}</td>`;
+            let rowHtml = '<tr class="' + (isValid ? '' : 'table-danger') + '">';
+            rowHtml += '<td>' + item.rowIndex + '</td>';
+            rowHtml += '<td><strong>' + item.lote + '</strong></td>';
+            rowHtml += '<td>' + item.medidor + '</td>';
+            rowHtml += '<td>' + (item.nombre || '-') + '</td>';
 
             const valuesByDate = {};
             item.mediciones.forEach(m => {
@@ -685,35 +752,37 @@ $(document).ready(function() {
 
             sortedDates.forEach(date => {
                 const val = valuesByDate[date];
-                rowHtml += `<td>${val !== undefined ? val : '-'}</td>`;
+                rowHtml += '<td>' + (val !== undefined ? val : '-') + '</td>';
             });
 
             const statusBadge = isValid ?
                 '<span class="badge bg-success">Válido</span>' :
                 '<span class="badge bg-danger">Error</span>';
-            rowHtml += `<td>${statusBadge}</td></tr>`;
+            rowHtml += '<td>' + statusBadge + '</td></tr>';
 
-            tbody.append(rowHtml);
+            tbody.innerHTML += rowHtml;
         });
 
-        $('#previewSummary').html(`
+        document.getElementById('previewSummary').innerHTML = `
             <div class="row">
                 <div class="col-md-3"><div class="text-center"><div class="number">${data.length}</div><div class="label">Total filas</div></div></div>
                 <div class="col-md-3"><div class="text-center text-success"><div class="number">${validCount}</div><div class="label">Válidas</div></div></div>
                 <div class="col-md-3"><div class="text-center text-danger"><div class="number">${errorCount}</div><div class="label">Con errores</div></div></div>
                 <div class="col-md-3"><div class="text-center text-primary"><div class="number">${totalMediciones}</div><div class="label">Mediciones</div></div></div>
             </div>
-        `);
+        `;
 
+        const importErrors = document.getElementById('importErrors');
         if (errors.length > 0) {
-            $('#importErrors').show().html(`<strong>Errores:</strong><ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>`);
+            importErrors.style.display = 'block';
+            importErrors.innerHTML = '<strong>Errores:</strong><ul>' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
         } else {
-            $('#importErrors').hide();
+            importErrors.style.display = 'none';
         }
 
         importData = data;
-        $('#step2').hide();
-        $('#step3').show();
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step3').style.display = 'block';
     }
 
     // ============================================
@@ -731,10 +800,11 @@ $(document).ready(function() {
             return;
         }
 
-        $('#progressContainer').show();
-        $('#btnImport').prop('disabled', true);
-        $('#progressBar').css('width', '10%').text('10%');
-        $('#progressText').text('Preparando datos...');
+        document.getElementById('progressContainer').style.display = 'block';
+        document.getElementById('btnImport').disabled = true;
+        document.getElementById('progressBar').style.width = '10%';
+        document.getElementById('progressBar').textContent = '10%';
+        document.getElementById('progressText').textContent = 'Preparando datos...';
 
         const payload = validData.map(item => ({
             lote: item.lote,
@@ -747,89 +817,86 @@ $(document).ready(function() {
             }))
         }));
 
-        const token = localStorage.getItem('token') || $('meta[name="api-token"]').attr('content') || '';
+        const token = document.querySelector('meta[name="api-token"]')?.content || '';
 
-        $.ajax({
-            url: '/api/import-mediciones/import',
-            type: 'POST',
+        fetch('/api/import-mediciones/import', {
+            method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + token,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
             },
-            data: JSON.stringify({ data: payload }),
-            beforeSend: function() {
-                $('#progressBar').css('width', '40%').text('40%');
-                $('#progressText').text('Enviando datos...');
-            },
-            success: function(response) {
-                $('#progressBar').css('width', '100%').text('100%');
-                $('#progressText').text('Importación completada.');
+            body: JSON.stringify({ data: payload })
+        })
+        .then(response => response.json())
+        .then(response => {
+            document.getElementById('progressBar').style.width = '100%';
+            document.getElementById('progressBar').textContent = '100%';
+            document.getElementById('progressText').textContent = 'Importación completada.';
 
-                if (response.success) {
-                    $('#successModalBody').html(`
-                        <p><strong>${response.message}</strong></p>
-                        <div class="row mt-3">
-                            <div class="col-6 text-center">
-                                <span class="badge bg-success fs-5 p-2">${response.success_count || 0}</span>
-                                <p class="text-muted">Mediciones guardadas</p>
-                            </div>
-                            <div class="col-6 text-center">
-                                <span class="badge bg-danger fs-5 p-2">${response.error_count || 0}</span>
-                                <p class="text-muted">Errores</p>
-                            </div>
+            if (response.success) {
+                document.getElementById('successModalBody').innerHTML = `
+                    <p><strong>${response.message}</strong></p>
+                    <div class="row mt-3">
+                        <div class="col-6 text-center">
+                            <span class="badge bg-success fs-5 p-2">${response.success_count || 0}</span>
+                            <p class="text-muted">Mediciones guardadas</p>
                         </div>
-                        ${response.errors && response.errors.length > 0 ? `<div class="mt-2"><small class="text-danger">${response.errors.join('<br>')}</small></div>` : ''}
-                    `);
-                    $('#successModal').modal('show');
+                        <div class="col-6 text-center">
+                            <span class="badge bg-danger fs-5 p-2">${response.error_count || 0}</span>
+                            <p class="text-muted">Errores</p>
+                        </div>
+                    </div>
+                    ${response.errors && response.errors.length > 0 ? `<div class="mt-2"><small class="text-danger">${response.errors.join('<br>')}</small></div>` : ''}
+                `;
+                document.getElementById('successModal').style.display = 'block';
 
-                    $('#btnReloadPage').off('click').on('click', function() {
-                        window.location.href = '{{ route("getTodasMedVista") }}';
-                    });
+                document.getElementById('btnReloadPage').onclick = function() {
+                    window.location.href = '{{ route("getTodasMedVista") }}';
+                };
 
-                    showAlert(response.message, 'success');
-                } else {
-                    showAlert(response.message || 'Error en la importación', 'danger');
-                }
-            },
-            error: function(xhr) {
-                const msg = xhr.responseJSON?.message || xhr.statusText;
-                showAlert('Error en la importación: ' + msg, 'danger');
-                console.error(xhr);
-            },
-            complete: function() {
-                $('#btnImport').prop('disabled', false);
+                showAlert(response.message, 'success');
+            } else {
+                showAlert(response.message || 'Error en la importación', 'danger');
             }
+        })
+        .catch(error => {
+            const msg = error.message || 'Error de conexión';
+            showAlert('Error en la importación: ' + msg, 'danger');
+            console.error(error);
+        })
+        .finally(function() {
+            document.getElementById('btnImport').disabled = false;
         });
     }
 
     // ============================================
     // EVENTOS
     // ============================================
-    $('#btnAnalyze').on('click', analyzeSheet);
-    $('#btnPreview').on('click', previewData);
-    $('#btnImport').on('click', importDataToSystem);
+    document.getElementById('btnAnalyze').addEventListener('click', analyzeSheet);
+    document.getElementById('btnPreview').addEventListener('click', previewData);
+    document.getElementById('btnImport').addEventListener('click', importDataToSystem);
 
-    $('#btnBackStep1').on('click', function() {
-        $('#step2').hide();
-        $('#step1').show();
+    document.getElementById('btnBackStep1').addEventListener('click', function() {
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step1').style.display = 'block';
     });
 
-    $('#btnBackStep2').on('click', function() {
-        $('#step3').hide();
-        $('#step2').show();
+    document.getElementById('btnBackStep2').addEventListener('click', function() {
+        document.getElementById('step3').style.display = 'none';
+        document.getElementById('step2').style.display = 'block';
     });
 
-    $('#btnRemoveFile').on('click', function() {
+    document.getElementById('btnRemoveFile').addEventListener('click', function() {
         currentFile = null;
         workbookData = null;
-        fileInfo.removeClass('visible');
-        fileInput.val('');
-        sheetSelection.hide();
-        $('#step2').hide();
-        $('#step3').hide();
-        $('#step1').show();
+        fileInfo.classList.remove('visible');
+        fileInput.value = '';
+        sheetSelection.style.display = 'none';
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step3').style.display = 'none';
+        document.getElementById('step1').style.display = 'block';
         showAlert('Archivo removido.', 'info');
     });
 
@@ -840,14 +907,17 @@ $(document).ready(function() {
         const alertHtml = `
             <div class="alert alert-${type} alert-dismissible fade show" role="alert">
                 ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close" onclick="this.parentElement.remove()" aria-label="Close"></button>
             </div>
         `;
-        alertContainer.append(alertHtml);
+        alertContainer.innerHTML += alertHtml;
         setTimeout(() => {
-            alertContainer.find('.alert:last').alert('close');
+            const alerts = alertContainer.querySelectorAll('.alert');
+            if (alerts.length > 0) {
+                alerts[alerts.length - 1].remove();
+            }
         }, 8000);
     }
 });
 </script>
-@endpush
+@endsection
