@@ -2,26 +2,46 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\getCodMed;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| is assigned the "api" middleware group. Enjoy building your API!
-|
 */
-// routes/api.php - CORREGIDO
-
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// ✅ TODAS las rutas API deben estar dentro de auth:sanctum
+// ============================================
+// RUTAS DE PRUEBA (SIN AUTENTICACIÓN)
+// ============================================
+
+Route::get('/test-simple', function() {
+    return response()->json([
+        'message' => '✅ Ruta API funcionando',
+        'timestamp' => date('Y-m-d H:i:s')
+    ]);
+});
+
+// ============================================
+// RUTAS DE IMPORTACIÓN (SIN AUTENTICACIÓN PARA PRUEBAS)
+// ============================================
+
+// Ruta para probar el controlador (GET)
+Route::get('/test-controller', [App\Http\Controllers\ImportMedicionesController::class, 'test']);
+
+// Ruta para probar import con datos (POST)
+Route::post('/test-import', [App\Http\Controllers\ImportMedicionesController::class, 'testImport']);
+
+// Ruta PRINCIPAL de importación (POST)
+Route::post('/import-mediciones/import', [App\Http\Controllers\ImportMedicionesController::class, 'import'])
+    ->name('api.import.mediciones.import');
+
+// ============================================
+// RUTAS AUTENTICADAS
+// ============================================
+
 Route::middleware('auth:sanctum')->group(function () {
     // Rutas existentes
     Route::get('/getMedidor', [App\Http\Controllers\ApiGeneral::class, 'getMedidor'])->name('getMedidor');
@@ -34,11 +54,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/getLotes', [App\Http\Controllers\ApiGeneral::class, 'getLotes'])->name('getLotes');
     Route::get('/getGuardarFacturas', [App\Http\Controllers\ApiGeneral::class, 'getGuardarFacturas'])->name('getGuardarFacturas');
     Route::post('/postGuardarFacturas', [App\Http\Controllers\ApiGeneral::class, 'postGuardarFacturas'])->name('postGuardarFacturas');
-
-    // ✅ IMPORTACIÓN DE MEDICIONES - DENTRO DE AUTH
-    
 });
-
-// ✅ Ruta de importación SIN autenticación (para pruebas)
-Route::post('/import-mediciones/import', [App\Http\Controllers\ImportMedicionesController::class, 'import'])
-    ->name('api.import.mediciones.import');

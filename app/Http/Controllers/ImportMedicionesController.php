@@ -12,6 +12,31 @@ use Illuminate\Support\Facades\DB;
 class ImportMedicionesController extends Controller
 {
     /**
+     * MÉTODO DE PRUEBA 1 - Verificar que el controlador se carga
+     */
+    public function test()
+    {
+        return response()->json([
+            'success' => true,
+            'message' => '✅ Controlador ImportMedicionesController funcionando',
+            'method' => 'test()',
+            'timestamp' => date('Y-m-d H:i:s')
+        ]);
+    }
+
+    /**
+     * MÉTODO DE PRUEBA 2 - Probar importación con datos fijos
+     */
+    public function testImport(Request $request)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => '✅ Método testImport funcionando',
+            'received_data' => $request->all()
+        ]);
+    }
+
+    /**
      * Muestra el formulario de importación.
      */
     public function showImportForm()
@@ -20,8 +45,7 @@ class ImportMedicionesController extends Controller
     }
 
     /**
-     * Importa las mediciones validadas.
-     * Versión con errores visibles directamente en la respuesta.
+     * Importa las mediciones validadas desde Excel.
      */
     public function import(Request $request)
     {
