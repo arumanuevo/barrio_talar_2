@@ -17,6 +17,7 @@ class ImportMedicionesController extends Controller
      */
     public function showImportForm()
     {
+        Log::info('=== showImportForm: Cargando vista de importación ===');
         return view('import-mediciones');
     }
 
@@ -25,40 +26,67 @@ class ImportMedicionesController extends Controller
      */
     public function import(Request $request)
     {
+        Log::info('=== INICIO import() ===');
+        Log::info('Request method: ' . $request->method());
+        Log::info('Request path: ' . $request->path());
+        Log::info('Request all: ', $request->all());
+        
         try {
-            $request->validate([
+            Log::info('Paso 1: Validando datos...');
+            
+            $validator = validator($request->all(), [
                 'data' => 'required|array',
                 'data.*.lote' => 'required|string',
                 'data.*.medidor' => 'required|string',
                 'data.*.mediciones' => 'required|array|min:1',
             ]);
 
+            if ($validator->fails()) {
+                Log::error('Validación fallida: ' . json_encode($validator->errors()->all()));
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error de validación: ' . implode(', ', $validator->errors()->all())
+                ], 422);
+            }
+
+            Log::info('Validación exitosa. Datos: ', $request->all());
+
             $importData = $request->data;
             $successCount = 0;
             $errorCount = 0;
             $errors = [];
 
+            Log::info('Paso 2: Iniciando transacción DB...');
             DB::beginTransaction();
 
-            foreach ($importData as $item) {
+            foreach ($importData as $index => $item) {
+                Log::info("Procesando item $index: ", $item);
+                
                 $lote = $item['lote'];
                 $medidor = $item['medidor'];
 
-                // Buscar usuario por lote
+                Log::info("Buscando usuario con lote: $lote");
                 $user = User::where('lote', $lote)->first();
+                
                 if (!$user) {
-                    $errors[] = "Lote $lote: No encontrado en el sistema.";
+                    $msg = "Lote $lote: No encontrado en el sistema.";
+                    Log::warning($msg);
+                    $errors[] = $msg;
                     $errorCount++;
                     continue;
                 }
+
+                Log::info("Usuario encontrado: ID {$user->id}, Medidor: {$user->medidor}");
 
                 if ($user->medidor != $medidor) {
-                    $errors[] = "Lote $lote: Medidor $medidor no coincide con el registrado ({$user->medidor}).";
+                    $msg = "Lote $lote: Medidor $medidor no coincide con el registrado ({$user->medidor}).";
+                    Log::warning($msg);
+                    $errors[] = $msg;
                     $errorCount++;
                     continue;
                 }
 
-                // Obtener última medición
+                Log::info("Buscando última medición para lote: $lote");
                 $lastMedicion = Medicion::where('lote', $lote)
                                         ->orderBy('fecha', 'desc')
                                         ->first();
@@ -67,44 +95,61 @@ class ImportMedicionesController extends Controller
                 $medidaAnt = $lastMedicion ? $lastMedicion->valormedido : 0;
                 $tomaAnt = $lastMedicion ? $lastMedicion->fecha : null;
 
-                foreach ($item['mediciones'] as $med) {
+                Log::info("Última medición: indice=$indice, medidaAnt=$medidaAnt, tomaAnt=$tomaAnt");
+
+                foreach ($item['mediciones'] as $medIdx => $med) {
+                    Log::info("Procesando medición $medIdx: ", $med);
+                    
                     $fechaStr = $med['fecha'] ?? null;
                     $valor = (float) $med['valor'];
 
                     if (!$fechaStr) {
-                        $errors[] = "Lote $lote: Fecha inválida.";
+                        $msg = "Lote $lote: Fecha inválida.";
+                        Log::warning($msg);
+                        $errors[] = $msg;
                         $errorCount++;
                         continue;
                     }
 
                     try {
                         $fecha = Carbon::parse($fechaStr)->startOfDay();
+                        Log::info("Fecha parseada: " . $fecha->format('Y-m-d'));
                     } catch (\Exception $e) {
-                        $errors[] = "Lote $lote: Formato de fecha inválido ($fechaStr).";
+                        $msg = "Lote $lote: Formato de fecha inválido ($fechaStr). Error: " . $e->getMessage();
+                        Log::warning($msg);
+                        $errors[] = $msg;
                         $errorCount++;
                         continue;
                     }
 
-                    // Verificar duplicado
+                    Log::info("Verificando duplicado para lote $lote, fecha " . $fecha->format('Y-m-d'));
                     $exists = Medicion::where('lote', $lote)
                                         ->where('fecha', $fecha)
                                         ->exists();
                     if ($exists) {
-                        $errors[] = "Lote $lote: Ya existe medición para $fechaStr. Se omite.";
+                        $msg = "Lote $lote: Ya existe medición para {$fecha->format('Y-m-d')}. Se omite.";
+                        Log::warning($msg);
+                        $errors[] = $msg;
                         $errorCount++;
                         continue;
                     }
 
                     $consumo = $valor - $medidaAnt;
+                    Log::info("Cálculo de consumo: $valor - $medidaAnt = $consumo");
+                    
                     if ($consumo < 0) {
-                        $errors[] = "Lote $lote: Consumo negativo ($consumo) para $fechaStr.";
+                        $msg = "Lote $lote: Consumo negativo ($consumo) para fecha {$fecha->format('Y-m-d')}.";
+                        Log::warning($msg);
+                        $errors[] = $msg;
                         $errorCount++;
                         continue;
                     }
 
                     $vencimiento = (clone $fecha)->addDays(30);
+                    Log::info("Vencimiento calculado: " . $vencimiento->format('Y-m-d'));
 
-                    Medicion::create([
+                    Log::info("Creando medición para lote $lote...");
+                    $medicion = Medicion::create([
                         'lote' => $lote,
                         'medidor' => $medidor,
                         'periodo' => 30,
@@ -120,6 +165,8 @@ class ImportMedicionesController extends Controller
                         'pagado' => 'NO'
                     ]);
 
+                    Log::info("Medición creada con ID: " . $medicion->id);
+
                     $successCount++;
                     $indice++;
                     $medidaAnt = $valor;
@@ -127,23 +174,33 @@ class ImportMedicionesController extends Controller
                 }
             }
 
+            Log::info("Paso 3: Confirmando transacción...");
             DB::commit();
 
-            return response()->json([
+            $response = [
                 'success' => true,
                 'message' => "Importación completada: $successCount mediciones guardadas, $errorCount errores.",
                 'success_count' => $successCount,
                 'error_count' => $errorCount,
                 'errors' => $errors
-            ]);
+            ];
+
+            Log::info('=== FIN import() EXITOSO ===', $response);
+            return response()->json($response);
 
         } catch (\Exception $e) {
+            Log::error('=== ERROR EN import() ===');
+            Log::error('Mensaje: ' . $e->getMessage());
+            Log::error('Archivo: ' . $e->getFile() . ':' . $e->getLine());
+            Log::error('Trace: ' . $e->getTraceAsString());
+            
             DB::rollBack();
-            Log::error('Error en import: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Error al importar: ' . $e->getMessage()
+                'message' => 'Error al importar: ' . $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
             ], 500);
         }
     }
