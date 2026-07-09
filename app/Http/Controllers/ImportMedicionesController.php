@@ -41,8 +41,8 @@ class ImportMedicionesController extends Controller
      */
     public function showImportForm()
     {
-        return "El método showImportForm() está funcionando";
-        //return view('import-mediciones');
+        //return "El método showImportForm() está funcionando";
+        return view('import-mediciones');
     }
 
     /**
