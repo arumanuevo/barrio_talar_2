@@ -330,7 +330,10 @@
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+// ✅ Usamos una función auto-ejecutable para evitar conflictos de variables
+(function() {
+    'use strict';
+
     // ============================================
     // PREVENIR DRAG & DROP A NIVEL GLOBAL
     // ============================================
@@ -344,7 +347,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // ============================================
-    // VARIABLES GLOBALES
+    // VARIABLES GLOBALES (dentro del closure)
     // ============================================
     let currentFile = null;
     let workbookData = null;
@@ -817,7 +820,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }))
         }));
 
-        // ✅ CSRF Token para la petición
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
         fetch('/api/import-mediciones/import', {
@@ -918,6 +920,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 8000);
     }
-});
+
+})(); // Fin de la función auto-ejecutable
 </script>
 @endsection
