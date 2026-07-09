@@ -207,10 +207,10 @@
                     </a>
                 </div>
                 <div class="card-body">
-                    <div id="alertContainer"></div>
+                    <div id="importAlertContainer"></div>
 
                     <!-- PASO 1: SUBIR ARCHIVO -->
-                    <div id="step1" class="step">
+                    <div id="importStep1" class="step">
                         <h5><i class="bi bi-upload"></i> Paso 1: Subir archivo Excel</h5>
                         <p class="text-muted">Selecciona el archivo <strong>.xlsx</strong> o <strong>.xls</strong> con las mediciones.</p>
 
@@ -224,82 +224,82 @@
                             </ul>
                         </div>
 
-                        <div class="drop-zone" id="dropZone">
+                        <div class="drop-zone" id="importDropZone">
                             <i class="bi bi-file-earmark-excel"></i>
                             <p><strong>Arrastra y suelta el archivo aquí</strong> o haz clic para seleccionarlo</p>
                             <p class="text-muted small">(Solo archivos .xlsx, .xls o .csv)</p>
-                            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+                            <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv">
                         </div>
 
-                        <div id="fileInfo" class="file-info">
+                        <div id="importFileInfo" class="file-info">
                             <i class="bi bi-file-earmark-excel text-success"></i>
-                            <span id="fileName"></span>
-                            <span class="badge bg-secondary ms-2" id="fileSize"></span>
-                            <button class="btn btn-danger btn-sm float-end" id="btnRemoveFile">
+                            <span id="importFileName"></span>
+                            <span class="badge bg-secondary ms-2" id="importFileSize"></span>
+                            <button class="btn btn-danger btn-sm float-end" id="importRemoveFile">
                                 <i class="bi bi-x"></i>
                             </button>
                         </div>
 
-                        <div id="sheetSelection" class="mt-3" style="display:none;">
-                            <label for="sheetSelect" class="form-label">Selecciona la hoja del archivo:</label>
-                            <select id="sheetSelect" class="form-select"></select>
-                            <button class="btn btn-primary mt-2" id="btnAnalyze">
+                        <div id="importSheetSelection" class="mt-3" style="display:none;">
+                            <label for="importSheetSelect" class="form-label">Selecciona la hoja del archivo:</label>
+                            <select id="importSheetSelect" class="form-select"></select>
+                            <button class="btn btn-primary mt-2" id="importAnalyzeBtn">
                                 <i class="bi bi-search"></i> Analizar archivo
                             </button>
                         </div>
                     </div>
 
                     <!-- PASO 2: MAPEO DE COLUMNAS -->
-                    <div id="step2" class="step" style="display:none;">
+                    <div id="importStep2" class="step" style="display:none;">
                         <hr>
                         <h5><i class="bi bi-arrow-left-right"></i> Paso 2: Verificar columnas</h5>
                         <p class="text-muted">Confirma que las columnas se hayan detectado correctamente.</p>
 
-                        <div id="mappingContainer" class="row g-3"></div>
+                        <div id="importMappingContainer" class="row g-3"></div>
 
                         <div class="mt-3">
-                            <button class="btn btn-secondary" id="btnBackStep1">
+                            <button class="btn btn-secondary" id="importBackStep1">
                                 <i class="bi bi-arrow-left"></i> Volver
                             </button>
-                            <button class="btn btn-primary" id="btnPreview">
+                            <button class="btn btn-primary" id="importPreviewBtn">
                                 <i class="bi bi-eye"></i> Previsualizar datos
                             </button>
                         </div>
                     </div>
 
                     <!-- PASO 3: PREVISUALIZACIÓN -->
-                    <div id="step3" class="step" style="display:none;">
+                    <div id="importStep3" class="step" style="display:none;">
                         <hr>
                         <h5><i class="bi bi-eye"></i> Paso 3: Previsualización y validación</h5>
                         <p class="text-muted">Revisa los datos antes de importar. Las filas con errores se marcarán en rojo.</p>
 
-                        <div id="previewSummary" class="summary-card"></div>
+                        <div id="importPreviewSummary" class="summary-card"></div>
 
                         <div class="table-responsive preview-table">
-                            <table class="table table-bordered table-striped" id="previewTable">
-                                <thead id="previewHead"></thead>
-                                <tbody id="previewBody"></tbody>
+                            <table class="table table-bordered table-striped" id="importPreviewTable">
+                                <thead id="importPreviewHead"></thead>
+                                <tbody id="importPreviewBody"></tbody>
                             </table>
                         </div>
 
                         <div id="importErrors" class="alert alert-danger mt-3" style="display:none;"></div>
 
                         <div class="mt-3">
-                            <button class="btn btn-secondary" id="btnBackStep2">
+                            <button class="btn btn-secondary" id="importBackStep2">
                                 <i class="bi bi-arrow-left"></i> Volver
                             </button>
-                            <button class="btn btn-success" id="btnImport">
+                            <button class="btn btn-success" id="importConfirmBtn">
                                 <i class="bi bi-check-circle"></i> Confirmar e Importar
                             </button>
                         </div>
                     </div>
 
                     <!-- PROGRESO -->
-                    <div id="progressContainer" style="display:none;" class="mt-3">
+                    <div id="importProgressContainer" style="display:none;" class="mt-3">
                         <div class="progress">
-                            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+                            <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
                         </div>
-                        <p id="progressText" class="mt-2 text-muted">Procesando...</p>
+                        <p id="importProgressText" class="mt-2 text-muted">Procesando...</p>
                     </div>
                 </div>
             </div>
@@ -308,16 +308,16 @@
 </div>
 
 <!-- Modal de éxito -->
-<div class="modal" id="successModal" tabindex="-1" style="display:none;">
+<div class="modal" id="importSuccessModal" tabindex="-1" style="display:none;">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title"><i class="bi bi-check-circle"></i> Importación completada</h5>
-                <button type="button" class="btn-close btn-close-white" onclick="document.getElementById('successModal').style.display='none'">&times;</button>
+                <button type="button" class="btn-close btn-close-white" onclick="document.getElementById('importSuccessModal').style.display='none'">&times;</button>
             </div>
-            <div class="modal-body" id="successModalBody"></div>
+            <div class="modal-body" id="importSuccessModalBody"></div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-success" id="btnReloadPage">Ir a Mediciones</button>
+                <button type="button" class="btn btn-success" id="importReloadPage">Ir a Mediciones</button>
             </div>
         </div>
     </div>
@@ -330,7 +330,7 @@
 </script>
 
 <script>
-// ✅ Usamos una función auto-ejecutable para evitar conflictos de variables
+// ✅ Usamos nombres de variables únicos con prefijo "import"
 (function() {
     'use strict';
 
@@ -347,116 +347,116 @@
     });
 
     // ============================================
-    // VARIABLES GLOBALES (dentro del closure)
+    // VARIABLES CON PREFIJO UNICO
     // ============================================
-    let currentFile = null;
-    let workbookData = null;
-    let sheetNames = [];
-    let currentSheetIndex = 0;
-    let headers = [];
-    let rows = [];
-    let previewData = [];
-    let importData = [];
+    let importCurrentFile = null;
+    let importWorkbookData = null;
+    let importSheetNames = [];
+    let importCurrentSheetIndex = 0;
+    let importHeaders = [];
+    let importRows = [];
+    let importPreviewData = [];
+    let importDataToSend = [];
 
     // ============================================
-    // ELEMENTOS DOM
+    // ELEMENTOS DOM CON PREFIJO
     // ============================================
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const fileInfo = document.getElementById('fileInfo');
-    const fileName = document.getElementById('fileName');
-    const fileSize = document.getElementById('fileSize');
-    const sheetSelection = document.getElementById('sheetSelection');
-    const sheetSelect = document.getElementById('sheetSelect');
-    const alertContainer = document.getElementById('alertContainer');
+    const importDropZone = document.getElementById('importDropZone');
+    const importFileInput = document.getElementById('importFileInput');
+    const importFileInfo = document.getElementById('importFileInfo');
+    const importFileName = document.getElementById('importFileName');
+    const importFileSize = document.getElementById('importFileSize');
+    const importSheetSelection = document.getElementById('importSheetSelection');
+    const importSheetSelect = document.getElementById('importSheetSelect');
+    const importAlertContainer = document.getElementById('importAlertContainer');
 
     // ============================================
     // EVENTOS DE DROP ZONE
     // ============================================
-    dropZone.addEventListener('dragover', function(e) {
+    importDropZone.addEventListener('dragover', function(e) {
         e.preventDefault();
         e.stopPropagation();
         this.classList.add('dragover');
     });
 
-    dropZone.addEventListener('dragleave', function(e) {
+    importDropZone.addEventListener('dragleave', function(e) {
         e.preventDefault();
         e.stopPropagation();
         this.classList.remove('dragover');
     });
 
-    dropZone.addEventListener('drop', function(e) {
+    importDropZone.addEventListener('drop', function(e) {
         e.preventDefault();
         e.stopPropagation();
         this.classList.remove('dragover');
 
         const files = e.dataTransfer.files;
         if (files.length > 0) {
-            fileInput.files = files;
-            handleFileSelect();
+            importFileInput.files = files;
+            handleImportFileSelect();
         }
     });
 
-    dropZone.addEventListener('click', function() {
-        fileInput.click();
+    importDropZone.addEventListener('click', function() {
+        importFileInput.click();
     });
 
-    fileInput.addEventListener('change', handleFileSelect);
+    importFileInput.addEventListener('change', handleImportFileSelect);
 
     // ============================================
     // MANEJAR SELECCIÓN DE ARCHIVO
     // ============================================
-    function handleFileSelect() {
-        const file = fileInput.files[0];
+    function handleImportFileSelect() {
+        const file = importFileInput.files[0];
         if (!file) return;
 
-        currentFile = file;
-        fileName.textContent = file.name;
-        fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
-        fileInfo.classList.add('visible');
+        importCurrentFile = file;
+        importFileName.textContent = file.name;
+        importFileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+        importFileInfo.classList.add('visible');
 
-        showAlert('Archivo seleccionado: ' + file.name, 'success');
+        showImportAlert('Archivo seleccionado: ' + file.name, 'success');
 
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                workbookData = XLSX.read(data, { type: 'array', cellDates: true });
+                importWorkbookData = XLSX.read(data, { type: 'array', cellDates: true });
 
-                sheetNames = workbookData.SheetNames;
-                if (sheetNames.length === 0) {
-                    showAlert('El archivo no contiene hojas.', 'danger');
+                importSheetNames = importWorkbookData.SheetNames;
+                if (importSheetNames.length === 0) {
+                    showImportAlert('El archivo no contiene hojas.', 'danger');
                     return;
                 }
 
-                sheetSelect.innerHTML = '';
-                sheetNames.forEach((name, idx) => {
+                importSheetSelect.innerHTML = '';
+                importSheetNames.forEach((name, idx) => {
                     const opt = document.createElement('option');
                     opt.value = idx;
                     opt.textContent = name;
-                    sheetSelect.appendChild(opt);
+                    importSheetSelect.appendChild(opt);
                 });
-                sheetSelection.style.display = 'block';
+                importSheetSelection.style.display = 'block';
 
                 let defaultSheet = 0;
-                sheetNames.forEach((name, idx) => {
+                importSheetNames.forEach((name, idx) => {
                     if (name.toUpperCase().includes('MEDICION')) {
                         defaultSheet = idx;
                     }
                 });
-                sheetSelect.value = defaultSheet;
+                importSheetSelect.value = defaultSheet;
 
-                showAlert('Archivo cargado. ' + sheetNames.length + ' hoja(s) encontrada(s).', 'info');
-                analyzeSheet();
+                showImportAlert('Archivo cargado. ' + importSheetNames.length + ' hoja(s) encontrada(s).', 'info');
+                analyzeImportSheet();
 
             } catch (error) {
-                showAlert('Error al leer el archivo: ' + error.message, 'danger');
+                showImportAlert('Error al leer el archivo: ' + error.message, 'danger');
                 console.error(error);
             }
         };
 
         reader.onerror = function() {
-            showAlert('Error al leer el archivo.', 'danger');
+            showImportAlert('Error al leer el archivo.', 'danger');
         };
 
         reader.readAsArrayBuffer(file);
@@ -465,37 +465,37 @@
     // ============================================
     // ANALIZAR HOJA
     // ============================================
-    function analyzeSheet() {
-        if (!workbookData) return;
+    function analyzeImportSheet() {
+        if (!importWorkbookData) return;
 
-        currentSheetIndex = parseInt(sheetSelect.value);
-        const sheetName = sheetNames[currentSheetIndex];
-        const worksheet = workbookData.Sheets[sheetName];
+        importCurrentSheetIndex = parseInt(importSheetSelect.value);
+        const sheetName = importSheetNames[importCurrentSheetIndex];
+        const worksheet = importWorkbookData.Sheets[sheetName];
 
         const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
         if (rawData.length < 2) {
-            showAlert('La hoja no contiene suficientes datos.', 'danger');
+            showImportAlert('La hoja no contiene suficientes datos.', 'danger');
             return;
         }
 
-        headers = rawData[0].map(h => String(h || '').trim());
-        rows = rawData.slice(1).filter(row => row.some(cell => cell !== '' && cell !== null && cell !== undefined));
+        importHeaders = rawData[0].map(h => String(h || '').trim());
+        importRows = rawData.slice(1).filter(row => row.some(cell => cell !== '' && cell !== null && cell !== undefined));
 
-        detectColumns();
+        detectImportColumns();
 
-        document.getElementById('step1').style.display = 'none';
-        document.getElementById('step2').style.display = 'block';
-        document.getElementById('step3').style.display = 'none';
+        document.getElementById('importStep1').style.display = 'none';
+        document.getElementById('importStep2').style.display = 'block';
+        document.getElementById('importStep3').style.display = 'none';
 
-        showAlert('Hoja "' + sheetName + '" analizada. ' + rows.length + ' filas de datos.', 'success');
+        showImportAlert('Hoja "' + sheetName + '" analizada. ' + importRows.length + ' filas de datos.', 'success');
     }
 
     // ============================================
     // DETECTAR COLUMNAS
     // ============================================
-    function detectColumns() {
-        const container = document.getElementById('mappingContainer');
+    function detectImportColumns() {
+        const container = document.getElementById('importMappingContainer');
         container.innerHTML = '';
 
         let loteCol = -1,
@@ -503,7 +503,7 @@
             nombreCol = -1;
         let fechaCols = [];
 
-        headers.forEach((header, idx) => {
+        importHeaders.forEach((header, idx) => {
             const h = header.toLowerCase();
             if (h.includes('lote') || h === 'lote') {
                 loteCol = idx;
@@ -517,9 +517,9 @@
         });
 
         // Si no se encontró lote, buscar por posición
-        if (loteCol === -1 && headers.length > 1) {
-            for (let col = 0; col < Math.min(headers.length, 5); col++) {
-                const sample = rows.slice(0, 5).map(row => row[col]).filter(v => v !== '');
+        if (loteCol === -1 && importHeaders.length > 1) {
+            for (let col = 0; col < Math.min(importHeaders.length, 5); col++) {
+                const sample = importRows.slice(0, 5).map(row => row[col]).filter(v => v !== '');
                 if (sample.length > 0 && sample.every(v => !isNaN(v) && v !== '')) {
                     loteCol = col;
                     break;
@@ -529,8 +529,8 @@
 
         // Si no se encontró medidor
         if (medidorCol === -1) {
-            for (let col = 0; col < Math.min(headers.length, 5); col++) {
-                const sample = rows.slice(0, 5).map(row => row[col]).filter(v => v !== '');
+            for (let col = 0; col < Math.min(importHeaders.length, 5); col++) {
+                const sample = importRows.slice(0, 5).map(row => row[col]).filter(v => v !== '');
                 if (sample.length > 0 && sample.every(v => typeof v === 'string' && v.length > 3)) {
                     medidorCol = col;
                     break;
@@ -540,9 +540,9 @@
 
         // Si no se encontraron fechas
         if (fechaCols.length === 0) {
-            for (let col = 0; col < headers.length; col++) {
+            for (let col = 0; col < importHeaders.length; col++) {
                 if (col === loteCol || col === medidorCol || col === nombreCol) continue;
-                const sample = rows.slice(0, 5).map(row => parseFloat(row[col])).filter(v => !isNaN(v) && v > 0);
+                const sample = importRows.slice(0, 5).map(row => parseFloat(row[col])).filter(v => !isNaN(v) && v > 0);
                 if (sample.length > 0) {
                     fechaCols.push(col);
                 }
@@ -561,10 +561,10 @@
             div.className = 'col-md-4 mb-3';
             div.innerHTML = `<label class="mapping-label">${field.label}</label>`;
             const select = document.createElement('select');
-            select.className = 'form-select mapping-select';
+            select.className = 'form-select import-mapping-select';
             select.dataset.key = field.key;
             select.innerHTML = `<option value="">-- No usar --</option>`;
-            headers.forEach((h, idx) => {
+            importHeaders.forEach((h, idx) => {
                 const selected = (idx === field.detected) ? 'selected' : '';
                 const display = h || 'Columna ' + (idx + 1);
                 select.innerHTML += `<option value="${idx}" ${selected}>${display}</option>`;
@@ -589,12 +589,12 @@
             fechaCols.forEach((colIdx) => {
                 const div = document.createElement('div');
                 div.className = 'col-md-3 mb-2';
-                const headerText = headers[colIdx] || 'Fecha ' + (colIdx + 1);
-                const sampleVal = rows.length > 0 ? rows[0][colIdx] : 'N/A';
+                const headerText = importHeaders[colIdx] || 'Fecha ' + (colIdx + 1);
+                const sampleVal = importRows.length > 0 ? importRows[0][colIdx] : 'N/A';
                 div.innerHTML = `
                     <label class="mapping-label">${headerText}</label>
                     <span class="mapping-hint">Ej: ${sampleVal}</span>
-                    <select class="form-select mapping-select" data-fecha="${colIdx}">
+                    <select class="form-select import-mapping-select" data-fecha="${colIdx}">
                         <option value="${colIdx}" selected>${headerText}</option>
                     </select>
                 `;
@@ -606,7 +606,7 @@
     // ============================================
     // PARSEAR FECHA DESDE ENCABEZADO
     // ============================================
-    function parseDateFromHeader(header) {
+    function parseImportDateFromHeader(header) {
         if (!header) return null;
         let match = header.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
         if (match) {
@@ -633,36 +633,36 @@
     // ============================================
     // PREVISUALIZAR DATOS
     // ============================================
-    function previewData() {
+    function previewImportData() {
         const mapping = {
-            lote: parseInt(document.querySelector('#mappingContainer select[data-key="lote"]').value),
-            medidor: parseInt(document.querySelector('#mappingContainer select[data-key="medidor"]').value),
-            nombre: parseInt(document.querySelector('#mappingContainer select[data-key="nombre"]').value),
+            lote: parseInt(document.querySelector('#importMappingContainer select[data-key="lote"]').value),
+            medidor: parseInt(document.querySelector('#importMappingContainer select[data-key="medidor"]').value),
+            nombre: parseInt(document.querySelector('#importMappingContainer select[data-key="nombre"]').value),
             fechas: []
         };
 
-        document.querySelectorAll('#mappingContainer select[data-fecha]').forEach(function(sel) {
+        document.querySelectorAll('#importMappingContainer select[data-fecha]').forEach(function(sel) {
             const val = sel.value;
             if (val !== '') mapping.fechas.push(parseInt(val));
         });
 
         if (isNaN(mapping.lote) || mapping.lote < 0) {
-            showAlert('Debes seleccionar la columna de LOTE.', 'warning');
+            showImportAlert('Debes seleccionar la columna de LOTE.', 'warning');
             return;
         }
         if (isNaN(mapping.medidor) || mapping.medidor < 0) {
-            showAlert('Debes seleccionar la columna de MEDIDOR.', 'warning');
+            showImportAlert('Debes seleccionar la columna de MEDIDOR.', 'warning');
             return;
         }
         if (mapping.fechas.length === 0) {
-            showAlert('Debes seleccionar al menos una columna de medición.', 'warning');
+            showImportAlert('Debes seleccionar al menos una columna de medición.', 'warning');
             return;
         }
 
-        previewData = [];
+        importPreviewData = [];
         const errors = [];
 
-        rows.forEach((row, rowIdx) => {
+        importRows.forEach((row, rowIdx) => {
             const lote = String(row[mapping.lote] || '').trim();
             const medidor = String(row[mapping.medidor] || '').trim();
             const nombre = mapping.nombre >= 0 ? String(row[mapping.nombre] || '').trim() : '';
@@ -676,8 +676,8 @@
             mapping.fechas.forEach(colIdx => {
                 const valor = parseFloat(row[colIdx]);
                 if (!isNaN(valor) && valor >= 0) {
-                    const fechaHeader = headers[colIdx] || '';
-                    const fecha = parseDateFromHeader(fechaHeader);
+                    const fechaHeader = importHeaders[colIdx] || '';
+                    const fecha = parseImportDateFromHeader(fechaHeader);
                     mediciones.push({ fecha: fecha, valor: valor, header: fechaHeader });
                 }
             });
@@ -692,7 +692,7 @@
                 return 0;
             });
 
-            previewData.push({
+            importPreviewData.push({
                 lote: lote,
                 medidor: medidor,
                 nombre: nombre,
@@ -702,15 +702,15 @@
             });
         });
 
-        renderPreview(previewData, errors);
+        renderImportPreview(importPreviewData, errors);
     }
 
     // ============================================
     // RENDERIZAR PREVIEW
     // ============================================
-    function renderPreview(data, errors) {
-        const tbody = document.getElementById('previewBody');
-        const thead = document.getElementById('previewHead');
+    function renderImportPreview(data, errors) {
+        const tbody = document.getElementById('importPreviewBody');
+        const thead = document.getElementById('importPreviewHead');
         tbody.innerHTML = '';
 
         let headerHtml = '<tr><th>#</th><th>Lote</th><th>Medidor</th><th>Nombre</th>';
@@ -766,7 +766,7 @@
             tbody.innerHTML += rowHtml;
         });
 
-        document.getElementById('previewSummary').innerHTML = `
+        document.getElementById('importPreviewSummary').innerHTML = `
             <div class="row">
                 <div class="col-md-3"><div class="text-center"><div class="number">${data.length}</div><div class="label">Total filas</div></div></div>
                 <div class="col-md-3"><div class="text-center text-success"><div class="number">${validCount}</div><div class="label">Válidas</div></div></div>
@@ -783,31 +783,31 @@
             importErrors.style.display = 'none';
         }
 
-        importData = data;
-        document.getElementById('step2').style.display = 'none';
-        document.getElementById('step3').style.display = 'block';
+        importDataToSend = data;
+        document.getElementById('importStep2').style.display = 'none';
+        document.getElementById('importStep3').style.display = 'block';
     }
 
     // ============================================
     // IMPORTAR DATOS
     // ============================================
     function importDataToSystem() {
-        if (importData.length === 0) {
-            showAlert('No hay datos para importar.', 'warning');
+        if (importDataToSend.length === 0) {
+            showImportAlert('No hay datos para importar.', 'warning');
             return;
         }
 
-        const validData = importData.filter(item => item.mediciones.length > 0);
+        const validData = importDataToSend.filter(item => item.mediciones.length > 0);
         if (validData.length === 0) {
-            showAlert('No hay datos válidos para importar.', 'warning');
+            showImportAlert('No hay datos válidos para importar.', 'warning');
             return;
         }
 
-        document.getElementById('progressContainer').style.display = 'block';
-        document.getElementById('btnImport').disabled = true;
-        document.getElementById('progressBar').style.width = '10%';
-        document.getElementById('progressBar').textContent = '10%';
-        document.getElementById('progressText').textContent = 'Preparando datos...';
+        document.getElementById('importProgressContainer').style.display = 'block';
+        document.getElementById('importConfirmBtn').disabled = true;
+        document.getElementById('importProgressBar').style.width = '10%';
+        document.getElementById('importProgressBar').textContent = '10%';
+        document.getElementById('importProgressText').textContent = 'Preparando datos...';
 
         const payload = validData.map(item => ({
             lote: item.lote,
@@ -833,12 +833,12 @@
         })
         .then(response => response.json())
         .then(response => {
-            document.getElementById('progressBar').style.width = '100%';
-            document.getElementById('progressBar').textContent = '100%';
-            document.getElementById('progressText').textContent = 'Importación completada.';
+            document.getElementById('importProgressBar').style.width = '100%';
+            document.getElementById('importProgressBar').textContent = '100%';
+            document.getElementById('importProgressText').textContent = 'Importación completada.';
 
             if (response.success) {
-                document.getElementById('successModalBody').innerHTML = `
+                document.getElementById('importSuccessModalBody').innerHTML = `
                     <p><strong>${response.message}</strong></p>
                     <div class="row mt-3">
                         <div class="col-6 text-center">
@@ -852,75 +852,75 @@
                     </div>
                     ${response.errors && response.errors.length > 0 ? `<div class="mt-2"><small class="text-danger">${response.errors.join('<br>')}</small></div>` : ''}
                 `;
-                document.getElementById('successModal').style.display = 'block';
+                document.getElementById('importSuccessModal').style.display = 'block';
 
-                document.getElementById('btnReloadPage').onclick = function() {
+                document.getElementById('importReloadPage').onclick = function() {
                     window.location.href = '{{ route("getTodasMedVista") }}';
                 };
 
-                showAlert(response.message, 'success');
+                showImportAlert(response.message, 'success');
             } else {
-                showAlert(response.message || 'Error en la importación', 'danger');
+                showImportAlert(response.message || 'Error en la importación', 'danger');
             }
         })
         .catch(error => {
             const msg = error.message || 'Error de conexión';
-            showAlert('Error en la importación: ' + msg, 'danger');
+            showImportAlert('Error en la importación: ' + msg, 'danger');
             console.error(error);
         })
         .finally(function() {
-            document.getElementById('btnImport').disabled = false;
+            document.getElementById('importConfirmBtn').disabled = false;
         });
     }
 
     // ============================================
     // EVENTOS
     // ============================================
-    document.getElementById('btnAnalyze').addEventListener('click', analyzeSheet);
-    document.getElementById('btnPreview').addEventListener('click', previewData);
-    document.getElementById('btnImport').addEventListener('click', importDataToSystem);
+    document.getElementById('importAnalyzeBtn').addEventListener('click', analyzeImportSheet);
+    document.getElementById('importPreviewBtn').addEventListener('click', previewImportData);
+    document.getElementById('importConfirmBtn').addEventListener('click', importDataToSystem);
 
-    document.getElementById('btnBackStep1').addEventListener('click', function() {
-        document.getElementById('step2').style.display = 'none';
-        document.getElementById('step1').style.display = 'block';
+    document.getElementById('importBackStep1').addEventListener('click', function() {
+        document.getElementById('importStep2').style.display = 'none';
+        document.getElementById('importStep1').style.display = 'block';
     });
 
-    document.getElementById('btnBackStep2').addEventListener('click', function() {
-        document.getElementById('step3').style.display = 'none';
-        document.getElementById('step2').style.display = 'block';
+    document.getElementById('importBackStep2').addEventListener('click', function() {
+        document.getElementById('importStep3').style.display = 'none';
+        document.getElementById('importStep2').style.display = 'block';
     });
 
-    document.getElementById('btnRemoveFile').addEventListener('click', function() {
-        currentFile = null;
-        workbookData = null;
-        fileInfo.classList.remove('visible');
-        fileInput.value = '';
-        sheetSelection.style.display = 'none';
-        document.getElementById('step2').style.display = 'none';
-        document.getElementById('step3').style.display = 'none';
-        document.getElementById('step1').style.display = 'block';
-        showAlert('Archivo removido.', 'info');
+    document.getElementById('importRemoveFile').addEventListener('click', function() {
+        importCurrentFile = null;
+        importWorkbookData = null;
+        importFileInfo.classList.remove('visible');
+        importFileInput.value = '';
+        importSheetSelection.style.display = 'none';
+        document.getElementById('importStep2').style.display = 'none';
+        document.getElementById('importStep3').style.display = 'none';
+        document.getElementById('importStep1').style.display = 'block';
+        showImportAlert('Archivo removido.', 'info');
     });
 
     // ============================================
     // ALERTAS
     // ============================================
-    function showAlert(message, type) {
+    function showImportAlert(message, type) {
         const alertHtml = `
             <div class="alert alert-${type} alert-dismissible fade show" role="alert">
                 ${message}
                 <button type="button" class="btn-close" onclick="this.parentElement.remove()" aria-label="Close"></button>
             </div>
         `;
-        alertContainer.innerHTML += alertHtml;
+        importAlertContainer.innerHTML += alertHtml;
         setTimeout(() => {
-            const alerts = alertContainer.querySelectorAll('.alert');
+            const alerts = importAlertContainer.querySelectorAll('.alert');
             if (alerts.length > 0) {
                 alerts[alerts.length - 1].remove();
             }
         }, 8000);
     }
 
-})(); // Fin de la función auto-ejecutable
+})();
 </script>
 @endsection
