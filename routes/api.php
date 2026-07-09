@@ -33,3 +33,9 @@ Route::get('/getLotes', [App\Http\Controllers\ApiGeneral::class, 'getLotes'])->n
 Route::get('/getGuardarFacturas', [App\Http\Controllers\ApiGeneral::class, 'getGuardarFacturas'])->name('getGuardarFacturas');
 Route::post('/postGuardarFacturas', [App\Http\Controllers\ApiGeneral::class, 'postGuardarFacturas'])->name('postGuardarFacturas');
 
+Route::prefix('import-mediciones')->group(function () {
+    Route::post('/analyze', [App\Http\Controllers\ImportMedicionesController::class, 'analyzeFile'])->name('api.import.mediciones.analyze');
+    Route::post('/preview', [App\Http\Controllers\ImportMedicionesController::class, 'previewImport'])->name('api.import.mediciones.preview');
+    Route::post('/import', [App\Http\Controllers\ImportMedicionesController::class, 'import'])->name('api.import.mediciones.import');
+});
+
