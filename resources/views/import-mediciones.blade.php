@@ -36,7 +36,6 @@
         display: block;
         margin-bottom: 15px;
     }
-    /* Ocultar el input file */
     #fileInput {
         display: none;
     }
@@ -84,7 +83,6 @@
         font-size: 0.85rem;
         color: #6c757d;
     }
-    /* Overlay para prevenir eventos de drag en toda la página */
     .drag-overlay {
         position: fixed;
         top: 0;
@@ -113,6 +111,26 @@
         font-size: 4rem;
         display: block;
         margin-bottom: 15px;
+    }
+    /* Estilos para los selects de mapeo */
+    .mapping-select {
+        width: 100%;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.9rem;
+        border-radius: 0.25rem;
+        border: 1px solid #ced4da;
+    }
+    .mapping-label {
+        font-weight: 500;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+    .mapping-hint {
+        font-size: 0.75rem;
+        color: #6c757d;
+        display: block;
+        margin-top: 0.25rem;
     }
 </style>
 
@@ -250,17 +268,18 @@
         </div>
     </div>
 </div>
+@endsection
 
 @push('scripts')
-<!-- SheetJS CDN para leer Excel -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- SheetJS CDN - Cargado antes que cualquier otro script que lo necesite -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
+</script>
 
 <script>
 $(document).ready(function() {
     // ============================================
     // PREVENIR DRAG & DROP A NIVEL GLOBAL
     // ============================================
-    // Esto evita que el navegador intente abrir el archivo
     $(document).on('dragover dragenter', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -296,7 +315,7 @@ $(document).ready(function() {
     const alertContainer = $('#alertContainer');
 
     // ============================================
-    // EVENTOS DE DROP ZONE (SOLO EN LA ZONA)
+    // EVENTOS DE DROP ZONE
     // ============================================
     dropZone.on('dragover dragenter', function(e) {
         e.preventDefault();
@@ -342,7 +361,6 @@ $(document).ready(function() {
 
         showAlert('Archivo seleccionado: ' + file.name, 'success');
 
-        // Leer el archivo con SheetJS
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
@@ -355,14 +373,12 @@ $(document).ready(function() {
                     return;
                 }
 
-                // Llenar selector de hojas
                 sheetSelect.empty();
                 sheetNames.forEach((name, idx) => {
                     sheetSelect.append(`<option value="${idx}">${name}</option>`);
                 });
                 sheetSelection.show();
 
-                // Seleccionar la hoja que parece tener datos
                 let defaultSheet = 0;
                 sheetNames.forEach((name, idx) => {
                     if (name.toUpperCase().includes('MEDICION')) {
@@ -372,8 +388,6 @@ $(document).ready(function() {
                 sheetSelect.val(defaultSheet);
 
                 showAlert('Archivo cargado. ' + sheetNames.length + ' hoja(s) encontrada(s).', 'info');
-
-                // Analizar automáticamente
                 analyzeSheet();
 
             } catch (error) {
@@ -425,7 +439,9 @@ $(document).ready(function() {
         const container = $('#mappingContainer');
         container.empty();
 
-        let loteCol = -1, medidorCol = -1, nombreCol = -1;
+        let loteCol = -1,
+            medidorCol = -1,
+            nombreCol = -1;
         let fechaCols = [];
 
         headers.forEach((header, idx) => {
@@ -482,13 +498,14 @@ $(document).ready(function() {
         ];
 
         fields.forEach(field => {
-            const div = $('<div class="col-md-4"></div>');
-            div.append(`<label class="form-label">${field.label}</label>`);
-            const select = $(`<select class="form-select" data-key="${field.key}"></select>`);
+            const div = $('<div class="col-md-4 mb-3"></div>');
+            div.append(`<label class="mapping-label">${field.label}</label>`);
+            const select = $(`<select class="form-select mapping-select" data-key="${field.key}"></select>`);
             select.append(`<option value="">-- No usar --</option>`);
             headers.forEach((h, idx) => {
                 const selected = (idx === field.detected) ? 'selected' : '';
-                select.append(`<option value="${idx}" ${selected}>${h || 'Columna ' + (idx+1)}</option>`);
+                const display = h || 'Columna ' + (idx + 1);
+                select.append(`<option value="${idx}" ${selected}>${display}</option>`);
             });
             div.append(select);
             container.append(div);
@@ -503,12 +520,12 @@ $(document).ready(function() {
             container.append(`<div class="col-12 alert alert-warning">No se detectaron columnas de medición.</div>`);
         } else {
             fechaCols.forEach((colIdx) => {
-                const div = $('<div class="col-md-3"></div>');
+                const div = $('<div class="col-md-3 mb-2"></div>');
                 const headerText = headers[colIdx] || 'Fecha ' + (colIdx + 1);
-                div.append(`<label class="form-label">${headerText}</label>`);
+                div.append(`<label class="mapping-label">${headerText}</label>`);
                 const sampleVal = rows.length > 0 ? rows[0][colIdx] : 'N/A';
-                div.append(`<small class="text-muted d-block mb-1">Ej: ${sampleVal}</small>`);
-                const select = $(`<select class="form-select" data-fecha="${colIdx}"></select>`);
+                div.append(`<span class="mapping-hint">Ej: ${sampleVal}</span>`);
+                const select = $(`<select class="form-select mapping-select" data-fecha="${colIdx}"></select>`);
                 select.append(`<option value="${colIdx}" selected>${headerText}</option>`);
                 div.append(select);
                 container.append(div);
@@ -517,7 +534,34 @@ $(document).ready(function() {
     }
 
     // ============================================
-    // PREVISUALIZAR
+    // PARSEAR FECHA DESDE ENCABEZADO
+    // ============================================
+    function parseDateFromHeader(header) {
+        if (!header) return null;
+        let match = header.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+        if (match) {
+            const day = parseInt(match[1]);
+            const month = parseInt(match[2]);
+            const year = match[3] ? parseInt(match[3]) : null;
+            if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+                let y = year;
+                if (!y) {
+                    const currentYear = new Date().getFullYear();
+                    if (month >= 11) y = currentYear - 1;
+                    else y = currentYear;
+                }
+                return new Date(y, month - 1, day);
+            }
+        }
+        try {
+            const d = new Date(header);
+            if (!isNaN(d.getTime())) return d;
+        } catch (e) {}
+        return null;
+    }
+
+    // ============================================
+    // PREVISUALIZAR DATOS
     // ============================================
     function previewData() {
         const mapping = {
@@ -589,33 +633,6 @@ $(document).ready(function() {
         });
 
         renderPreview(previewData, errors);
-    }
-
-    // ============================================
-    // PARSEAR FECHA
-    // ============================================
-    function parseDateFromHeader(header) {
-        if (!header) return null;
-        let match = header.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
-        if (match) {
-            const day = parseInt(match[1]);
-            const month = parseInt(match[2]);
-            const year = match[3] ? parseInt(match[3]) : null;
-            if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-                let y = year;
-                if (!y) {
-                    const currentYear = new Date().getFullYear();
-                    if (month >= 11) y = currentYear - 1;
-                    else y = currentYear;
-                }
-                return new Date(y, month - 1, day);
-            }
-        }
-        try {
-            const d = new Date(header);
-            if (!isNaN(d.getTime())) return d;
-        } catch(e) {}
-        return null;
     }
 
     // ============================================
@@ -700,7 +717,7 @@ $(document).ready(function() {
     }
 
     // ============================================
-    // IMPORTAR
+    // IMPORTAR DATOS
     // ============================================
     function importDataToSystem() {
         if (importData.length === 0) {
@@ -730,7 +747,7 @@ $(document).ready(function() {
             }))
         }));
 
-        const token = localStorage.getItem('token') || $('#bearerToken').val();
+        const token = localStorage.getItem('token') || $('meta[name="api-token"]').attr('content') || '';
 
         $.ajax({
             url: '/api/import-mediciones/import',
@@ -830,11 +847,6 @@ $(document).ready(function() {
         setTimeout(() => {
             alertContainer.find('.alert:last').alert('close');
         }, 8000);
-    }
-
-    // Token
-    if (!$('#bearerToken').length) {
-        $('body').append(`<input type="hidden" id="bearerToken" value="${localStorage.getItem('token') || ''}">`);
     }
 });
 </script>
