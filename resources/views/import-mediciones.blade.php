@@ -31,30 +31,21 @@
         animation: spin 0.8s linear infinite;
         margin: 0 auto 15px;
     }
-    .preview-loading .progress-text {
-        font-size: 0.95rem;
-        color: #6c757d;
-    }
-    .preview-loading .progress-text strong {
-        color: #0d6efd;
-    }
-    .preview-loading .progress-bar-container {
-        max-width: 400px;
-        margin: 10px auto 0;
-        height: 6px;
-        background: #e9ecef;
-        border-radius: 3px;
-        overflow: hidden;
-    }
-    .preview-loading .progress-bar-container .bar {
-        height: 100%;
-        width: 0%;
-        background: #0d6efd;
-        border-radius: 3px;
-        transition: width 0.3s ease;
-    }
     @keyframes spin {
         to { transform: rotate(360deg); }
+    }
+    
+    .sample-notice {
+        background: #fff3cd;
+        border: 1px solid #ffecb5;
+        border-radius: 8px;
+        padding: 12px 15px;
+        margin-bottom: 15px;
+        color: #856404;
+        font-size: 0.9rem;
+    }
+    .sample-notice strong {
+        color: #664d03;
     }
     
     /* ... resto de estilos ... */
@@ -140,16 +131,20 @@
                         <div id="previewLoading" class="preview-loading">
                             <div class="spinner"></div>
                             <div class="progress-text">
-                                <strong id="previewStatusTitle">Procesando datos...</strong>
+                                <strong>Procesando datos...</strong>
                                 <br>
                                 <span id="previewProgressText">Preparando archivo...</span>
-                            </div>
-                            <div class="progress-bar-container">
-                                <div class="bar" id="previewProgressBar"></div>
                             </div>
                         </div>
 
                         <div id="previewSummary" class="summary-card" style="display:none;"></div>
+
+                        <div class="sample-notice" id="sampleNotice" style="display:none;">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Mostrando muestra de 10 filas</strong> — 
+                            El archivo contiene <span id="totalRowsCount">0</span> filas. 
+                            La importación procesará todas las filas.
+                        </div>
 
                         <div class="table-responsive preview-table" id="previewTableContainer" style="display:none;">
                             <table class="table table-bordered table-striped" id="importPreviewTable">
@@ -165,7 +160,7 @@
                                 <i class="bi bi-arrow-left"></i> Volver
                             </button>
                             <button class="btn btn-success" id="importConfirmBtn">
-                                <i class="bi bi-check-circle"></i> Confirmar e Importar
+                                <i class="bi bi-check-circle"></i> Confirmar e Importar (TODAS las filas)
                             </button>
                         </div>
                     </div>
@@ -247,29 +242,22 @@
 
     const previewLoading = document.getElementById('previewLoading');
     const previewProgressText = document.getElementById('previewProgressText');
-    const previewProgressBar = document.getElementById('previewProgressBar');
-    const previewStatusTitle = document.getElementById('previewStatusTitle');
     const previewSummary = document.getElementById('previewSummary');
     const previewTableContainer = document.getElementById('previewTableContainer');
     const previewActions = document.getElementById('previewActions');
+    const sampleNotice = document.getElementById('sampleNotice');
+    const totalRowsCount = document.getElementById('totalRowsCount');
 
     // ============================================
-    // FUNCIONES DE PROGRESO DE PREVIEW
+    // FUNCIONES DE PROGRESO
     // ============================================
-    function updatePreviewProgress(percent, text, title) {
-        previewProgressBar.style.width = percent + '%';
-        previewProgressText.textContent = text || '';
-        if (title) {
-            previewStatusTitle.textContent = title;
-        }
-    }
-
-    function showPreviewLoading() {
+    function showPreviewLoading(text) {
         previewLoading.classList.add('show');
         previewSummary.style.display = 'none';
         previewTableContainer.style.display = 'none';
         previewActions.style.display = 'none';
-        updatePreviewProgress(0, 'Iniciando análisis...', 'Procesando datos...');
+        sampleNotice.style.display = 'none';
+        if (text) previewProgressText.textContent = text;
     }
 
     function hidePreviewLoading() {
@@ -536,13 +524,13 @@
     }
 
     // ============================================
-    // PREVISUALIZAR DATOS (ASÍNCRONO)
+    // PREVISUALIZAR DATOS (SOLO 10 FILAS)
     // ============================================
     function previewImportData() {
-        showPreviewLoading();
-        updatePreviewProgress(5, 'Obteniendo configuración...', 'Preparando previsualización...');
+        // ✅ Mostrar loading
+        showPreviewLoading('Preparando muestra de datos...');
 
-        // ✅ Usar setTimeout para no bloquear la UI
+        // ✅ Usar setTimeout para permitir que el DOM se actualice
         setTimeout(function() {
             try {
                 const mapping = {
@@ -573,109 +561,87 @@
                     return;
                 }
 
-                updatePreviewProgress(10, 'Procesando filas del archivo...', 'Analizando datos...');
-
-                // ✅ Procesar en bloques para no bloquear la UI
+                // ✅ Procesar SOLO las primeras 10 filas para el preview
+                const MAX_PREVIEW_ROWS = 10;
+                const rowsToProcess = importRows.slice(0, MAX_PREVIEW_ROWS);
                 const totalRows = importRows.length;
-                const CHUNK_SIZE = 10;
-                let processedRows = 0;
-                let allPreviewData = [];
-                let allErrors = [];
+                const previewData = [];
+                const errors = [];
 
-                function processChunk() {
-                    const start = processedRows;
-                    const end = Math.min(start + CHUNK_SIZE, totalRows);
-                    
-                    for (let i = start; i < end; i++) {
-                        const row = importRows[i];
-                        const rowIdx = i;
+                showPreviewLoading(`Procesando muestra de ${Math.min(MAX_PREVIEW_ROWS, totalRows)} filas...`);
+
+                rowsToProcess.forEach((row, rowIdx) => {
+                    const lote = String(row[mapping.lote] || '').trim();
+                    const medidor = String(row[mapping.medidor] || '').trim();
+                    const nombre = mapping.nombre >= 0 ? String(row[mapping.nombre] || '').trim() : '';
+
+                    if (!lote) {
+                        errors.push('Fila ' + (rowIdx + 2) + ': Lote vacío.');
+                        return;
+                    }
+
+                    const mediciones = [];
+                    mapping.fechas.forEach(colIdx => {
+                        const valor = parseFloat(row[colIdx]);
+                        if (!isNaN(valor) && valor >= 0) {
+                            const fechaHeader = importHeaders[colIdx] || '';
+                            const fecha = parseImportDateFromHeader(fechaHeader);
+                            mediciones.push({ fecha: fecha, valor: valor, header: fechaHeader });
+                        }
+                    });
+
+                    if (mediciones.length === 0) {
+                        errors.push('Fila ' + (rowIdx + 2) + ': No se encontraron valores.');
+                        return;
+                    }
+
+                    mediciones.sort((a, b) => {
+                        if (a.fecha && b.fecha) return a.fecha - b.fecha;
+                        return 0;
+                    });
+
+                    let valorAnterior = 0;
+                    let fechaAnterior = null;
+                    let indice = 1;
+
+                    mediciones.forEach((med, idx) => {
+                        const esPrimera = (idx === 0);
+                        const consumo = esPrimera ? 0 : med.valor - valorAnterior;
                         
-                        const lote = String(row[mapping.lote] || '').trim();
-                        const medidor = String(row[mapping.medidor] || '').trim();
-                        const nombre = mapping.nombre >= 0 ? String(row[mapping.nombre] || '').trim() : '';
+                        const vencimiento = new Date(med.fecha);
+                        vencimiento.setDate(vencimiento.getDate() + 30);
 
-                        if (!lote) {
-                            allErrors.push('Fila ' + (rowIdx + 2) + ': Lote vacío.');
-                            continue;
-                        }
-
-                        const mediciones = [];
-                        mapping.fechas.forEach(colIdx => {
-                            const valor = parseFloat(row[colIdx]);
-                            if (!isNaN(valor) && valor >= 0) {
-                                const fechaHeader = importHeaders[colIdx] || '';
-                                const fecha = parseImportDateFromHeader(fechaHeader);
-                                mediciones.push({ fecha: fecha, valor: valor, header: fechaHeader });
-                            }
+                        previewData.push({
+                            lote: lote,
+                            medidor: medidor,
+                            nombre: nombre,
+                            indice: indice,
+                            fecha: med.fecha,
+                            vencimiento: vencimiento,
+                            tomaant: fechaAnterior,
+                            medidaant: esPrimera ? 0 : valorAnterior,
+                            valormedido: med.valor,
+                            consumo: consumo,
+                            periodo: 30,
+                            inspector: 'admin',
+                            foto: 'Sin foto',
+                            pagado: 'NO',
+                            rowIndex: rowIdx + 2,
+                            esPrimera: esPrimera,
+                            valid: true
                         });
 
-                        if (mediciones.length === 0) {
-                            allErrors.push('Fila ' + (rowIdx + 2) + ': No se encontraron valores.');
-                            continue;
-                        }
+                        valorAnterior = med.valor;
+                        fechaAnterior = med.fecha;
+                        indice++;
+                    });
+                });
 
-                        mediciones.sort((a, b) => {
-                            if (a.fecha && b.fecha) return a.fecha - b.fecha;
-                            return 0;
-                        });
+                // ✅ Guardar TODOS los datos para la importación (no solo el preview)
+                importDataToSend = previewData;
 
-                        let valorAnterior = 0;
-                        let fechaAnterior = null;
-                        let indice = 1;
-
-                        mediciones.forEach((med, idx) => {
-                            const esPrimera = (idx === 0);
-                            const consumo = esPrimera ? 0 : med.valor - valorAnterior;
-                            
-                            const vencimiento = new Date(med.fecha);
-                            vencimiento.setDate(vencimiento.getDate() + 30);
-
-                            allPreviewData.push({
-                                lote: lote,
-                                medidor: medidor,
-                                nombre: nombre,
-                                indice: indice,
-                                fecha: med.fecha,
-                                vencimiento: vencimiento,
-                                tomaant: fechaAnterior,
-                                medidaant: esPrimera ? 0 : valorAnterior,
-                                valormedido: med.valor,
-                                consumo: consumo,
-                                periodo: 30,
-                                inspector: 'admin',
-                                foto: 'Sin foto',
-                                pagado: 'NO',
-                                rowIndex: rowIdx + 2,
-                                esPrimera: esPrimera,
-                                valid: true
-                            });
-
-                            valorAnterior = med.valor;
-                            fechaAnterior = med.fecha;
-                            indice++;
-                        });
-                    }
-
-                    processedRows = end;
-                    
-                    // ✅ Actualizar progreso (10% a 90%)
-                    const progress = 10 + (processedRows / totalRows) * 80;
-                    updatePreviewProgress(progress, `Procesando fila ${processedRows} de ${totalRows}...`);
-
-                    // ✅ Si hay más filas, procesar el siguiente bloque
-                    if (processedRows < totalRows) {
-                        setTimeout(processChunk, 50);
-                    } else {
-                        // ✅ Terminado, renderizar preview
-                        importPreviewData = allPreviewData;
-                        renderImportPreview(allPreviewData, allErrors);
-                        updatePreviewProgress(100, '¡Previsualización completada!', '¡Listo!');
-                        setTimeout(hidePreviewLoading, 500);
-                    }
-                }
-
-                // ✅ Iniciar procesamiento por bloques
-                processChunk();
+                // ✅ Mostrar el preview con la muestra
+                renderImportPreview(previewData, errors, totalRows);
 
             } catch (error) {
                 console.error('Error en preview:', error);
@@ -688,10 +654,16 @@
     // ============================================
     // RENDERIZAR PREVIEW
     // ============================================
-    function renderImportPreview(data, errors) {
+    function renderImportPreview(data, errors, totalRows) {
         const tbody = document.getElementById('importPreviewBody');
         const thead = document.getElementById('importPreviewHead');
         tbody.innerHTML = '';
+
+        // ✅ Mostrar aviso de muestra
+        if (totalRows > 0) {
+            totalRowsCount.textContent = totalRows;
+            sampleNotice.style.display = 'block';
+        }
 
         const headers = [
             '#', 'Lote', 'Medidor', 'Nombre', 'Índice', 'Fecha', 'Vencimiento',
@@ -746,22 +718,28 @@
 
         document.getElementById('previewSummary').innerHTML = `
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="text-center">
                         <div class="number">${data.length}</div>
-                        <div class="label">Total registros a insertar</div>
+                        <div class="label">Filas mostradas (muestra)</div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="text-center text-success">
                         <div class="number">${validCount}</div>
-                        <div class="label">Válidos</div>
+                        <div class="label">Válidas</div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="text-center text-danger">
                         <div class="number">${errorCount}</div>
                         <div class="label">Con errores</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center text-primary">
+                        <div class="number">${totalRows}</div>
+                        <div class="label">Total filas a importar</div>
                     </div>
                 </div>
             </div>
@@ -777,18 +755,19 @@
         const importErrors = document.getElementById('importErrors');
         if (errors.length > 0) {
             importErrors.style.display = 'block';
-            importErrors.innerHTML = '<strong>Errores:</strong><ul>' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
+            importErrors.innerHTML = '<strong>Errores encontrados en la muestra:</strong><ul>' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
         } else {
             importErrors.style.display = 'none';
         }
 
-        importDataToSend = data;
+        // ✅ Ocultar loading y mostrar preview
+        hidePreviewLoading();
         document.getElementById('importStep2').style.display = 'none';
         document.getElementById('importStep3').style.display = 'block';
     }
 
     // ============================================
-    // IMPORTAR DATOS
+    // IMPORTAR DATOS (TODAS LAS FILAS)
     // ============================================
     function importDataToSystem() {
         if (importDataToSend.length === 0) {
@@ -796,8 +775,79 @@
             return;
         }
 
-        const validData = importDataToSend.filter(item => item.valid !== false);
-        if (validData.length === 0) {
+        // ✅ Recolectar TODOS los datos del archivo (no solo el preview)
+        // Reconstruir todos los datos desde importRows
+        const mapping = {
+            lote: parseInt(document.querySelector('#importMappingContainer select[data-key="lote"]').value),
+            medidor: parseInt(document.querySelector('#importMappingContainer select[data-key="medidor"]').value),
+            nombre: parseInt(document.querySelector('#importMappingContainer select[data-key="nombre"]').value),
+            fechas: []
+        };
+
+        document.querySelectorAll('#importMappingContainer select[data-fecha]').forEach(function(sel) {
+            const val = sel.value;
+            if (val !== '') mapping.fechas.push(parseInt(val));
+        });
+
+        // ✅ Procesar TODAS las filas para la importación
+        const allData = [];
+        const errors = [];
+
+        importRows.forEach((row, rowIdx) => {
+            const lote = String(row[mapping.lote] || '').trim();
+            const medidor = String(row[mapping.medidor] || '').trim();
+            const nombre = mapping.nombre >= 0 ? String(row[mapping.nombre] || '').trim() : '';
+
+            if (!lote) {
+                errors.push('Fila ' + (rowIdx + 2) + ': Lote vacío.');
+                return;
+            }
+
+            const mediciones = [];
+            mapping.fechas.forEach(colIdx => {
+                const valor = parseFloat(row[colIdx]);
+                if (!isNaN(valor) && valor >= 0) {
+                    const fechaHeader = importHeaders[colIdx] || '';
+                    const fecha = parseImportDateFromHeader(fechaHeader);
+                    mediciones.push({ fecha: fecha, valor: valor });
+                }
+            });
+
+            if (mediciones.length === 0) {
+                errors.push('Fila ' + (rowIdx + 2) + ': No se encontraron valores.');
+                return;
+            }
+
+            mediciones.sort((a, b) => {
+                if (a.fecha && b.fecha) return a.fecha - b.fecha;
+                return 0;
+            });
+
+            let valorAnterior = 0;
+            let fechaAnterior = null;
+
+            const medicionesData = mediciones.map((med, idx) => {
+                const esPrimera = (idx === 0);
+                const consumo = esPrimera ? 0 : med.valor - valorAnterior;
+                const result = {
+                    fecha: med.fecha ? med.fecha.toISOString().split('T')[0] : null,
+                    valor: med.valor,
+                    consumo: consumo
+                };
+                valorAnterior = med.valor;
+                fechaAnterior = med.fecha;
+                return result;
+            });
+
+            allData.push({
+                lote: lote,
+                medidor: medidor,
+                nombre: nombre,
+                mediciones: medicionesData
+            });
+        });
+
+        if (allData.length === 0) {
             showImportAlert('No hay datos válidos para importar.', 'warning');
             return;
         }
@@ -808,24 +858,7 @@
         document.getElementById('importProgressBar').textContent = '10%';
         document.getElementById('importProgressText').textContent = 'Preparando datos...';
 
-        const groupedByLote = {};
-        validData.forEach(item => {
-            if (!groupedByLote[item.lote]) {
-                groupedByLote[item.lote] = {
-                    lote: item.lote,
-                    medidor: item.medidor,
-                    nombre: item.nombre,
-                    mediciones: []
-                };
-            }
-            groupedByLote[item.lote].mediciones.push({
-                fecha: item.fecha ? item.fecha.toISOString().split('T')[0] : null,
-                valor: item.valormedido,
-                consumo: item.consumo
-            });
-        });
-
-        const payload = Object.values(groupedByLote);
+        const payload = allData;
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
         fetch('/api/import-mediciones/import', {
