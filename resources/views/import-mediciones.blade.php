@@ -8,7 +8,236 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
 <style>
-    /* ... estilos anteriores ... */
+    .drop-zone {
+        border: 2px dashed #6c757d;
+        border-radius: 8px;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: #f8f9fa;
+        position: relative;
+        z-index: 10;
+    }
+    .drop-zone:hover {
+        border-color: #0d6efd;
+        background: #e7f1ff;
+    }
+    .drop-zone.dragover {
+        border-color: #198754;
+        background: #d1e7dd;
+    }
+    .drop-zone i {
+        font-size: 4rem;
+        color: #6c757d;
+        display: block;
+        margin-bottom: 15px;
+    }
+    #fileInput {
+        display: none;
+    }
+    .preview-table {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .preview-table table {
+        font-size: 0.8rem;
+    }
+    .preview-table .table-danger {
+        background-color: #f8d7da !important;
+    }
+    .preview-table .table-success {
+        background-color: #d1e7dd !important;
+    }
+    .preview-table thead th {
+        position: sticky;
+        top: 0;
+        background: #343a40;
+        color: white;
+        z-index: 10;
+        white-space: nowrap;
+    }
+    .step {
+        animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .file-info {
+        background: #e9ecef;
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-top: 10px;
+        display: none;
+    }
+    .file-info.visible {
+        display: block;
+    }
+    .summary-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+    .summary-card .number {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .summary-card .label {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    .mapping-label {
+        font-weight: 500;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+    .mapping-hint {
+        font-size: 0.75rem;
+        color: #6c757d;
+        display: block;
+        margin-top: 0.25rem;
+    }
+    .alert {
+        padding: 0.75rem 1.25rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1rem;
+    }
+    .alert-success { background: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+    .alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .alert-warning { background: #fff3cd; color: #856404; border: 1px solid #ffecb5; }
+    .alert-info { background: #cfe2ff; color: #084298; border: 1px solid #b6d4fe; }
+    .btn {
+        display: inline-block;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.9rem;
+        border-radius: 0.25rem;
+        border: 1px solid transparent;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.15s;
+    }
+    .btn-primary { background: #0d6efd; color: white; border-color: #0d6efd; }
+    .btn-primary:hover { background: #0b5ed7; }
+    .btn-secondary { background: #6c757d; color: white; border-color: #6c757d; }
+    .btn-secondary:hover { background: #5a6268; }
+    .btn-success { background: #198754; color: white; border-color: #198754; }
+    .btn-success:hover { background: #157347; }
+    .btn-danger { background: #dc3545; color: white; border-color: #dc3545; }
+    .btn-danger:hover { background: #b02a37; }
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+    .form-select {
+        display: block;
+        width: 100%;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.9rem;
+        border-radius: 0.25rem;
+        border: 1px solid #ced4da;
+        background: white;
+    }
+    .form-label {
+        font-weight: 500;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+    .text-muted { color: #6c757d; }
+    .mt-1 { margin-top: 0.25rem; }
+    .mt-2 { margin-top: 0.5rem; }
+    .mt-3 { margin-top: 1rem; }
+    .mt-4 { margin-top: 1.5rem; }
+    .mb-0 { margin-bottom: 0; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-3 { margin-bottom: 1rem; }
+    .ms-2 { margin-left: 0.5rem; }
+    .float-end { float: right; }
+    .d-flex { display: flex; }
+    .gap-2 { gap: 0.5rem; }
+    .flex-wrap { flex-wrap: wrap; }
+    .row { display: flex; flex-wrap: wrap; margin: -0.5rem; }
+    .col-md-3 { flex: 0 0 25%; padding: 0.5rem; }
+    .col-md-4 { flex: 0 0 33.333%; padding: 0.5rem; }
+    .col-md-6 { flex: 0 0 50%; padding: 0.5rem; }
+    .col-md-11 { flex: 0 0 91.666%; padding: 0.5rem; }
+    .col-12 { flex: 0 0 100%; padding: 0.5rem; }
+    .text-center { text-align: center; }
+    .text-success { color: #198754; }
+    .text-danger { color: #dc3545; }
+    .text-primary { color: #0d6efd; }
+    .badge { display: inline-block; padding: 0.2rem 0.4rem; font-size: 0.7rem; border-radius: 0.25rem; }
+    .bg-success { background: #198754; color: white; }
+    .bg-danger { background: #dc3545; color: white; }
+    .bg-secondary { background: #6c757d; color: white; }
+    .bg-warning { background: #ffc107; color: #212529; }
+    .bg-primary { background: #0d6efd; color: white; }
+    .progress { height: 1.5rem; background: #e9ecef; border-radius: 0.25rem; overflow: hidden; }
+    .progress-bar { height: 100%; background: #0d6efd; color: white; text-align: center; line-height: 1.5rem; transition: width 0.3s; }
+    .progress-bar-striped { background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent); }
+    .progress-bar-animated { animation: progress-bar-stripes 1s linear infinite; }
+    @keyframes progress-bar-stripes { 0% { background-position: 1rem 0; } 100% { background-position: 0 0; } }
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 0.3rem 0.2rem; border: 1px solid #dee2e6; }
+    .table-striped tbody tr:nth-of-type(odd) { background: #f8f9fa; }
+    .table-bordered { border: 1px solid #dee2e6; }
+    .table-responsive { overflow-x: auto; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 15px; }
+    .card { background: white; border-radius: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .card-header { padding: 1rem; border-bottom: 1px solid #dee2e6; background: #0d6efd; color: white; border-radius: 0.5rem 0.5rem 0 0; }
+    .card-body { padding: 1.25rem; }
+    .card-header .btn-light { background: white; color: #212529; border-color: #f8f9fa; }
+    .card-header .btn-light:hover { background: #e9ecef; }
+    hr { margin: 1.5rem 0; border: 0; border-top: 1px solid #dee2e6; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050; }
+    .modal.show { display: block; }
+    .modal-dialog { position: relative; max-width: 500px; margin: 1.75rem auto; }
+    .modal-content { background: white; border-radius: 0.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    .modal-header { padding: 1rem; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header .btn-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; }
+    .modal-body { padding: 1rem; }
+    .modal-footer { padding: 1rem; border-top: 1px solid #dee2e6; display: flex; justify-content: flex-end; gap: 0.5rem; }
+    .btn-close-white { color: white; }
+    .fs-5 { font-size: 1.25rem; }
+    .p-2 { padding: 0.5rem; }
+    .preview-loading {
+        display: none;
+        text-align: center;
+        padding: 40px 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin: 20px 0;
+        border: 1px solid #dee2e6;
+    }
+    .preview-loading.show {
+        display: block;
+    }
+    .preview-loading .spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #e9ecef;
+        border-top-color: #0d6efd;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 15px;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .sample-notice {
+        background: #fff3cd;
+        border: 1px solid #ffecb5;
+        border-radius: 8px;
+        padding: 12px 15px;
+        margin-bottom: 15px;
+        color: #856404;
+        font-size: 0.9rem;
+    }
+    .sample-notice strong {
+        color: #664d03;
+    }
 </style>
 
 <div class="container mt-4">
@@ -43,7 +272,7 @@
                             <i class="bi bi-exclamation-triangle"></i>
                             <strong>Importante:</strong> Selecciona la hoja <strong>"MEDICION FEB - MARZO - 10 ABRIL"</strong>
                             <br>
-                            <small>Esta hoja contiene los valores crudos de medición. No uses la hoja "MEDICION CONTRA FACTURA DE AYSA" (contiene fórmulas calculadas).</small>
+                            <small>Esta hoja contiene los valores crudos de medición.</small>
                         </div>
 
                         <div class="drop-zone" id="importDropZone">
@@ -172,6 +401,26 @@
     'use strict';
 
     // ============================================
+    // ✅ FUNCIÓN PARA LIMPIAR LOTE (ELIMINAR CEROS A LA IZQUIERDA)
+    // ============================================
+    function cleanLote(lote) {
+        if (!lote) return '';
+        
+        // Eliminar espacios
+        lote = lote.trim();
+        
+        // Si es un número (incluyendo con ceros a la izquierda), convertir a entero y luego a string
+        if (!isNaN(lote) && lote.length > 0) {
+            // Convertir a número entero (elimina ceros a la izquierda automáticamente)
+            var num = parseInt(lote, 10);
+            // Convertir de vuelta a string
+            lote = num.toString();
+        }
+        
+        return lote;
+    }
+
+    // ============================================
     // PREVENIR DRAG & DROP A NIVEL GLOBAL
     // ============================================
     document.addEventListener('dragover', function(e) {
@@ -195,7 +444,7 @@
     let importPreviewData = [];
     let importDataToSend = [];
 
-    // ✅ Fechas fijas para la hoja "MEDICION FEB - MARZO - 10 ABRIL"
+    // Fechas fijas para la hoja "MEDICION FEB - MARZO - 10 ABRIL"
     const FECHAS_MEDICION = [
         '2025-11-12',
         '2025-12-12',
@@ -313,7 +562,7 @@
                 });
                 importSheetSelection.style.display = 'block';
 
-                // ✅ Seleccionar hoja "MEDICION FEB - MARZO - 10 ABRIL" por defecto
+                // Seleccionar hoja "MEDICION FEB - MARZO - 10 ABRIL" por defecto
                 let defaultSheet = 0;
                 importSheetNames.forEach((name, idx) => {
                     if (name.includes('MEDICION FEB - MARZO')) {
@@ -368,7 +617,7 @@
     }
 
     // ============================================
-    // DETECTAR COLUMNAS (para hoja con encabezados "consumo")
+    // DETECTAR COLUMNAS
     // ============================================
     function detectImportColumns() {
         const container = document.getElementById('importMappingContainer');
@@ -389,7 +638,6 @@
                 nombreCol = idx;
             } else {
                 // Las columnas restantes son las de medición
-                // Verificar si tienen valores numéricos
                 const sample = importRows.slice(0, 5).map(row => parseFloat(row[idx])).filter(v => !isNaN(v) && v > 0);
                 if (sample.length > 0) {
                     fechaCols.push(idx);
@@ -397,7 +645,6 @@
             }
         });
 
-        // Si no se encontró lote, buscar por posición
         if (loteCol === -1 && importHeaders.length > 1) {
             for (let col = 0; col < Math.min(importHeaders.length, 5); col++) {
                 const sample = importRows.slice(0, 5).map(row => row[col]).filter(v => v !== '');
@@ -408,7 +655,6 @@
             }
         }
 
-        // Si no se encontró medidor
         if (medidorCol === -1) {
             for (let col = 0; col < Math.min(importHeaders.length, 5); col++) {
                 const sample = importRows.slice(0, 5).map(row => row[col]).filter(v => v !== '');
@@ -443,7 +689,7 @@
             container.appendChild(div);
         });
 
-        // Columnas de medición (valores)
+        // Columnas de medición
         const fechaDiv = document.createElement('div');
         fechaDiv.className = 'col-12 mt-3';
         fechaDiv.innerHTML = `<hr><h6>Columnas de medición (valores en orden cronológico)</h6>
@@ -456,7 +702,6 @@
             alert.textContent = 'No se detectaron columnas de medición.';
             container.appendChild(alert);
         } else {
-            // ✅ Mostrar las columnas de medición con sus fechas correspondientes
             fechaCols.forEach((colIdx, index) => {
                 const div = document.createElement('div');
                 div.className = 'col-md-3 mb-2';
@@ -510,7 +755,7 @@
                     return;
                 }
 
-                // ✅ Procesar SOLO las primeras 10 filas para el preview
+                // Procesar SOLO las primeras 10 filas para el preview
                 const MAX_PREVIEW_ROWS = 10;
                 const rowsToProcess = importRows.slice(0, MAX_PREVIEW_ROWS);
                 const totalRows = importRows.length;
@@ -520,16 +765,18 @@
                 showPreviewLoading(`Procesando muestra de ${Math.min(MAX_PREVIEW_ROWS, totalRows)} filas...`);
 
                 rowsToProcess.forEach((row, rowIdx) => {
-                    const lote = String(row[mapping.lote] || '').trim();
+                    // ✅ APLICAR cleanLote() para eliminar ceros a la izquierda
+                    const loteOriginal = String(row[mapping.lote] || '').trim();
+                    const lote = cleanLote(loteOriginal);
                     const medidor = String(row[mapping.medidor] || '').trim();
                     const nombre = mapping.nombre >= 0 ? String(row[mapping.nombre] || '').trim() : '';
 
                     if (!lote) {
-                        errors.push('Fila ' + (rowIdx + 2) + ': Lote vacío.');
+                        errors.push('Fila ' + (rowIdx + 2) + ': Lote vacío (original: "' + loteOriginal + '").');
                         return;
                     }
 
-                    // ✅ Usar fechas fijas para cada columna de medición
+                    // Usar fechas fijas para cada columna de medición
                     const mediciones = [];
                     mapping.fechas.forEach((colIdx, index) => {
                         const valor = parseFloat(row[colIdx]);
@@ -567,6 +814,7 @@
 
                         previewData.push({
                             lote: lote,
+                            loteOriginal: loteOriginal,
                             medidor: medidor,
                             nombre: nombre,
                             indice: indice,
@@ -591,10 +839,10 @@
                     });
                 });
 
-                // ✅ Guardar TODOS los datos para la importación
+                // Guardar TODOS los datos para la importación
                 importDataToSend = previewData;
 
-                // ✅ Mostrar el preview con la muestra
+                // Mostrar el preview con la muestra
                 renderImportPreview(previewData, errors, totalRows);
 
             } catch (error) {
@@ -744,12 +992,14 @@
         const errors = [];
 
         importRows.forEach((row, rowIdx) => {
-            const lote = String(row[mapping.lote] || '').trim();
+            // ✅ APLICAR cleanLote() para eliminar ceros a la izquierda
+            const loteOriginal = String(row[mapping.lote] || '').trim();
+            const lote = cleanLote(loteOriginal);
             const medidor = String(row[mapping.medidor] || '').trim();
             const nombre = mapping.nombre >= 0 ? String(row[mapping.nombre] || '').trim() : '';
 
             if (!lote) {
-                errors.push('Fila ' + (rowIdx + 2) + ': Lote vacío.');
+                errors.push('Fila ' + (rowIdx + 2) + ': Lote vacío (original: "' + loteOriginal + '").');
                 return;
             }
 

@@ -20,6 +20,31 @@ class ImportMedicionesController extends Controller
     }
 
     /**
+     * ✅ LIMPIA EL NÚMERO DE LOTE:
+     * - Elimina ceros a la izquierda (ej: 029 → 29)
+     * - Elimina sufijos como -INQ (ya limpiado en Excel)
+     * - Convierte a entero y luego a string para eliminar ceros a la izquierda
+     */
+    private function cleanLote($lote)
+    {
+        // Si está vacío, retornar vacío
+        if (empty($lote)) {
+            return '';
+        }
+
+        // Eliminar espacios
+        $lote = trim($lote);
+
+        // Si es un número (incluyendo con ceros a la izquierda), convertir a entero y luego a string
+        if (is_numeric($lote)) {
+            // Convertir a entero (elimina ceros a la izquierda automáticamente)
+            $lote = (string) intval($lote);
+        }
+
+        return $lote;
+    }
+
+    /**
      * Importa las mediciones validadas desde Excel.
      */
     public function import(Request $request)
@@ -54,18 +79,22 @@ class ImportMedicionesController extends Controller
                     continue;
                 }
 
-                $lote = trim($item['lote']);
+                // ✅ LIMPIAR LOTE: eliminar ceros a la izquierda
+                $loteOriginal = trim($item['lote']);
+                $lote = $this->cleanLote($loteOriginal);
                 $medidor = trim($item['medidor']);
 
                 if (empty($lote) || empty($medidor)) {
-                    $errors[] = "Item $index: Lote o medidor vacío.";
+                    $errors[] = "Item $index: Lote o medidor vacío (original: '$loteOriginal').";
                     $errorCount++;
                     continue;
                 }
 
+                // Buscar usuario con el lote limpio
                 $user = User::where('lote', $lote)->first();
+                
                 if (!$user) {
-                    $errors[] = "Lote $lote: No encontrado en el sistema.";
+                    $errors[] = "Lote $lote (original: '$loteOriginal'): No encontrado en el sistema.";
                     $errorCount++;
                     continue;
                 }
@@ -85,20 +114,12 @@ class ImportMedicionesController extends Controller
                 $medidaAnt = $lastMedicion ? $lastMedicion->valormedido : 0;
                 $tomaAnt = $lastMedicion ? $lastMedicion->fecha : null;
 
-                // Procesar cada medición del lote (ordenadas por fecha)
-                // Las mediciones ya vienen ordenadas desde el frontend
                 foreach ($item['mediciones'] as $medIdx => $med) {
                     $fechaStr = $med['fecha'] ?? null;
                     $valor = isset($med['valor']) ? (float) $med['valor'] : null;
 
-                    if (!$fechaStr) {
-                        $errors[] = "Lote $lote, medición $medIdx: Fecha inválida.";
-                        $errorCount++;
-                        continue;
-                    }
-
-                    if ($valor === null || $valor < 0) {
-                        $errors[] = "Lote $lote, medición $medIdx: Valor inválido ($valor).";
+                    if (!$fechaStr || $valor === null) {
+                        $errors[] = "Lote $lote, medición $medIdx: Datos inválidos.";
                         $errorCount++;
                         continue;
                     }
@@ -111,7 +132,6 @@ class ImportMedicionesController extends Controller
                         continue;
                     }
 
-                    // Verificar duplicado
                     $exists = Medicion::where('lote', $lote)
                                         ->where('fecha', $fecha)
                                         ->exists();
@@ -121,8 +141,7 @@ class ImportMedicionesController extends Controller
                         continue;
                     }
 
-                    // ✅ Cálculo de consumo CORREGIDO
-                    // Si es la primera medición del lote, el consumo es 0
+                    // ✅ Cálculo de consumo: 0 para la primera, diferencia para las siguientes
                     if ($tomaAnt === null) {
                         $consumo = 0;
                     } else {
