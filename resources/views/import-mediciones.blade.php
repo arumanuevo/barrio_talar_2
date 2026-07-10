@@ -9,46 +9,6 @@
 
 <style>
     /* ... estilos anteriores ... */
-    
-    .preview-loading {
-        display: none;
-        text-align: center;
-        padding: 40px 20px;
-        background: #f8f9fa;
-        border-radius: 8px;
-        margin: 20px 0;
-        border: 1px solid #dee2e6;
-    }
-    .preview-loading.show {
-        display: block;
-    }
-    .preview-loading .spinner {
-        width: 50px;
-        height: 50px;
-        border: 4px solid #e9ecef;
-        border-top-color: #0d6efd;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-        margin: 0 auto 15px;
-    }
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-    
-    .sample-notice {
-        background: #fff3cd;
-        border: 1px solid #ffecb5;
-        border-radius: 8px;
-        padding: 12px 15px;
-        margin-bottom: 15px;
-        color: #856404;
-        font-size: 0.9rem;
-    }
-    .sample-notice strong {
-        color: #664d03;
-    }
-    
-    /* ... resto de estilos ... */
 </style>
 
 <div class="container mt-4">
@@ -75,8 +35,15 @@
                             <ul class="mb-0 mt-1">
                                 <li>Columna con <strong>LOTE</strong> (número de lote)</li>
                                 <li>Columna con <strong>MEDIDOR</strong> (código del medidor)</li>
-                                <li>Columnas siguientes: fechas con los valores de medición</li>
+                                <li>Columnas siguientes: valores de medición en orden cronológico</li>
                             </ul>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Importante:</strong> Selecciona la hoja <strong>"MEDICION FEB - MARZO - 10 ABRIL"</strong>
+                            <br>
+                            <small>Esta hoja contiene los valores crudos de medición. No uses la hoja "MEDICION CONTRA FACTURA DE AYSA" (contiene fórmulas calculadas).</small>
                         </div>
 
                         <div class="drop-zone" id="importDropZone">
@@ -228,6 +195,17 @@
     let importPreviewData = [];
     let importDataToSend = [];
 
+    // ✅ Fechas fijas para la hoja "MEDICION FEB - MARZO - 10 ABRIL"
+    const FECHAS_MEDICION = [
+        '2025-11-12',
+        '2025-12-12',
+        '2026-01-12',
+        '2026-02-12',
+        '2026-03-12',
+        '2026-04-12',
+        '2026-05-12'
+    ];
+
     // ============================================
     // ELEMENTOS DOM
     // ============================================
@@ -335,9 +313,10 @@
                 });
                 importSheetSelection.style.display = 'block';
 
+                // ✅ Seleccionar hoja "MEDICION FEB - MARZO - 10 ABRIL" por defecto
                 let defaultSheet = 0;
                 importSheetNames.forEach((name, idx) => {
-                    if (name.includes('MEDICION CONTRA FACTURA')) {
+                    if (name.includes('MEDICION FEB - MARZO')) {
                         defaultSheet = idx;
                     }
                 });
@@ -389,7 +368,7 @@
     }
 
     // ============================================
-    // DETECTAR COLUMNAS
+    // DETECTAR COLUMNAS (para hoja con encabezados "consumo")
     // ============================================
     function detectImportColumns() {
         const container = document.getElementById('importMappingContainer');
@@ -408,11 +387,17 @@
                 medidorCol = idx;
             } else if (h.includes('nombre') || h.includes('propietario') || h.includes('titular')) {
                 nombreCol = idx;
-            } else if (h.includes('/') || h.match(/\d{1,2}\/\d{1,2}/)) {
-                fechaCols.push(idx);
+            } else {
+                // Las columnas restantes son las de medición
+                // Verificar si tienen valores numéricos
+                const sample = importRows.slice(0, 5).map(row => parseFloat(row[idx])).filter(v => !isNaN(v) && v > 0);
+                if (sample.length > 0) {
+                    fechaCols.push(idx);
+                }
             }
         });
 
+        // Si no se encontró lote, buscar por posición
         if (loteCol === -1 && importHeaders.length > 1) {
             for (let col = 0; col < Math.min(importHeaders.length, 5); col++) {
                 const sample = importRows.slice(0, 5).map(row => row[col]).filter(v => v !== '');
@@ -423,6 +408,7 @@
             }
         }
 
+        // Si no se encontró medidor
         if (medidorCol === -1) {
             for (let col = 0; col < Math.min(importHeaders.length, 5); col++) {
                 const sample = importRows.slice(0, 5).map(row => row[col]).filter(v => v !== '');
@@ -433,16 +419,7 @@
             }
         }
 
-        if (fechaCols.length === 0) {
-            for (let col = 0; col < importHeaders.length; col++) {
-                if (col === loteCol || col === medidorCol || col === nombreCol) continue;
-                const sample = importRows.slice(0, 5).map(row => parseFloat(row[col])).filter(v => !isNaN(v) && v > 0);
-                if (sample.length > 0) {
-                    fechaCols.push(col);
-                }
-            }
-        }
-
+        // Mostrar columnas detectadas
         const fields = [
             { key: 'lote', label: 'Lote *', detected: loteCol },
             { key: 'medidor', label: 'Medidor *', detected: medidorCol },
@@ -466,10 +443,11 @@
             container.appendChild(div);
         });
 
+        // Columnas de medición (valores)
         const fechaDiv = document.createElement('div');
         fechaDiv.className = 'col-12 mt-3';
-        fechaDiv.innerHTML = `<hr><h6>Columnas de medición</h6>
-            <p class="text-muted small">Estas columnas contienen los valores de medición para cada fecha.</p>`;
+        fechaDiv.innerHTML = `<hr><h6>Columnas de medición (valores en orden cronológico)</h6>
+            <p class="text-muted small">Estas columnas contienen los valores de medición. El orden debe ser: Nov 2025, Dic 2025, Ene 2026, Feb 2026, Mar 2026, Abr 2026, May 2026</p>`;
         container.appendChild(fechaDiv);
 
         if (fechaCols.length === 0) {
@@ -478,16 +456,17 @@
             alert.textContent = 'No se detectaron columnas de medición.';
             container.appendChild(alert);
         } else {
-            fechaCols.forEach((colIdx) => {
+            // ✅ Mostrar las columnas de medición con sus fechas correspondientes
+            fechaCols.forEach((colIdx, index) => {
                 const div = document.createElement('div');
                 div.className = 'col-md-3 mb-2';
-                const headerText = importHeaders[colIdx] || 'Fecha ' + (colIdx + 1);
+                const fechaLabel = FECHAS_MEDICION[index] || 'Fecha ' + (index + 1);
                 const sampleVal = importRows.length > 0 ? importRows[0][colIdx] : 'N/A';
                 div.innerHTML = `
-                    <label class="mapping-label">${headerText}</label>
+                    <label class="mapping-label">${fechaLabel}</label>
                     <span class="mapping-hint">Ej: ${sampleVal}</span>
                     <select class="form-select import-mapping-select" data-fecha="${colIdx}">
-                        <option value="${colIdx}" selected>${headerText}</option>
+                        <option value="${colIdx}" selected>${fechaLabel}</option>
                     </select>
                 `;
                 container.appendChild(div);
@@ -496,41 +475,11 @@
     }
 
     // ============================================
-    // PARSEAR FECHA
-    // ============================================
-    function parseImportDateFromHeader(header) {
-        if (!header) return null;
-        
-        let match = header.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
-        if (match) {
-            const day = parseInt(match[1]);
-            const month = parseInt(match[2]);
-            const year = match[3] ? parseInt(match[3]) : null;
-            if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-                let y = year;
-                if (!y) {
-                    const currentYear = new Date().getFullYear();
-                    if (month >= 11) y = currentYear - 1;
-                    else y = currentYear;
-                }
-                return new Date(y, month - 1, day);
-            }
-        }
-        try {
-            const d = new Date(header);
-            if (!isNaN(d.getTime())) return d;
-        } catch (e) {}
-        return null;
-    }
-
-    // ============================================
     // PREVISUALIZAR DATOS (SOLO 10 FILAS)
     // ============================================
     function previewImportData() {
-        // ✅ Mostrar loading
         showPreviewLoading('Preparando muestra de datos...');
 
-        // ✅ Usar setTimeout para permitir que el DOM se actualice
         setTimeout(function() {
             try {
                 const mapping = {
@@ -580,13 +529,17 @@
                         return;
                     }
 
+                    // ✅ Usar fechas fijas para cada columna de medición
                     const mediciones = [];
-                    mapping.fechas.forEach(colIdx => {
+                    mapping.fechas.forEach((colIdx, index) => {
                         const valor = parseFloat(row[colIdx]);
                         if (!isNaN(valor) && valor >= 0) {
-                            const fechaHeader = importHeaders[colIdx] || '';
-                            const fecha = parseImportDateFromHeader(fechaHeader);
-                            mediciones.push({ fecha: fecha, valor: valor, header: fechaHeader });
+                            const fechaStr = FECHAS_MEDICION[index] || null;
+                            mediciones.push({ 
+                                fecha: fechaStr ? new Date(fechaStr) : null, 
+                                valor: valor,
+                                header: fechaStr || 'Fecha ' + (index + 1)
+                            });
                         }
                     });
 
@@ -595,6 +548,7 @@
                         return;
                     }
 
+                    // Ordenar por fecha
                     mediciones.sort((a, b) => {
                         if (a.fecha && b.fecha) return a.fecha - b.fecha;
                         return 0;
@@ -637,7 +591,7 @@
                     });
                 });
 
-                // ✅ Guardar TODOS los datos para la importación (no solo el preview)
+                // ✅ Guardar TODOS los datos para la importación
                 importDataToSend = previewData;
 
                 // ✅ Mostrar el preview con la muestra
@@ -659,7 +613,6 @@
         const thead = document.getElementById('importPreviewHead');
         tbody.innerHTML = '';
 
-        // ✅ Mostrar aviso de muestra
         if (totalRows > 0) {
             totalRowsCount.textContent = totalRows;
             sampleNotice.style.display = 'block';
@@ -760,7 +713,6 @@
             importErrors.style.display = 'none';
         }
 
-        // ✅ Ocultar loading y mostrar preview
         hidePreviewLoading();
         document.getElementById('importStep2').style.display = 'none';
         document.getElementById('importStep3').style.display = 'block';
@@ -775,7 +727,6 @@
             return;
         }
 
-        // ✅ Recolectar TODOS los datos del archivo (no solo el preview)
         // Reconstruir todos los datos desde importRows
         const mapping = {
             lote: parseInt(document.querySelector('#importMappingContainer select[data-key="lote"]').value),
@@ -789,7 +740,6 @@
             if (val !== '') mapping.fechas.push(parseInt(val));
         });
 
-        // ✅ Procesar TODAS las filas para la importación
         const allData = [];
         const errors = [];
 
@@ -804,12 +754,14 @@
             }
 
             const mediciones = [];
-            mapping.fechas.forEach(colIdx => {
+            mapping.fechas.forEach((colIdx, index) => {
                 const valor = parseFloat(row[colIdx]);
                 if (!isNaN(valor) && valor >= 0) {
-                    const fechaHeader = importHeaders[colIdx] || '';
-                    const fecha = parseImportDateFromHeader(fechaHeader);
-                    mediciones.push({ fecha: fecha, valor: valor });
+                    const fechaStr = FECHAS_MEDICION[index] || null;
+                    mediciones.push({ 
+                        fecha: fechaStr,
+                        valor: valor
+                    });
                 }
             });
 
@@ -818,24 +770,23 @@
                 return;
             }
 
+            // Ordenar por fecha
             mediciones.sort((a, b) => {
-                if (a.fecha && b.fecha) return a.fecha - b.fecha;
+                if (a.fecha && b.fecha) return a.fecha.localeCompare(b.fecha);
                 return 0;
             });
 
             let valorAnterior = 0;
-            let fechaAnterior = null;
 
             const medicionesData = mediciones.map((med, idx) => {
                 const esPrimera = (idx === 0);
                 const consumo = esPrimera ? 0 : med.valor - valorAnterior;
                 const result = {
-                    fecha: med.fecha ? med.fecha.toISOString().split('T')[0] : null,
+                    fecha: med.fecha,
                     valor: med.valor,
                     consumo: consumo
                 };
                 valorAnterior = med.valor;
-                fechaAnterior = med.fecha;
                 return result;
             });
 
