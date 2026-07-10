@@ -12,36 +12,10 @@ use Illuminate\Support\Facades\DB;
 class ImportMedicionesController extends Controller
 {
     /**
-     * MÉTODO DE PRUEBA 1 - Verificar que el controlador se carga
-     */
-    public function test()
-    {
-        return response()->json([
-            'success' => true,
-            'message' => '✅ Controlador ImportMedicionesController funcionando',
-            'method' => 'test()',
-            'timestamp' => date('Y-m-d H:i:s')
-        ]);
-    }
-
-    /**
-     * MÉTODO DE PRUEBA 2 - Probar importación con datos fijos
-     */
-    public function testImport(Request $request)
-    {
-        return response()->json([
-            'success' => true,
-            'message' => '✅ Método testImport funcionando',
-            'received_data' => $request->all()
-        ]);
-    }
-
-    /**
      * Muestra el formulario de importación.
      */
     public function showImportForm()
     {
-        //return "El método showImportForm() está funcionando";
         return view('import-mediciones');
     }
 
@@ -51,11 +25,10 @@ class ImportMedicionesController extends Controller
     public function import(Request $request)
     {
         try {
-            // Verificar si llegaron datos
             if (!$request->has('data')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No se recibieron datos. Request: ' . json_encode($request->all())
+                    'message' => 'No se recibieron datos.'
                 ], 400);
             }
 
@@ -64,7 +37,7 @@ class ImportMedicionesController extends Controller
             if (!is_array($importData) || empty($importData)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El campo "data" debe ser un array no vacío. Recibido: ' . gettype($importData)
+                    'message' => 'El campo "data" debe ser un array no vacío.'
                 ], 400);
             }
 
@@ -75,9 +48,8 @@ class ImportMedicionesController extends Controller
             DB::beginTransaction();
 
             foreach ($importData as $index => $item) {
-                // Validar estructura del item
                 if (!isset($item['lote']) || !isset($item['medidor']) || !isset($item['mediciones'])) {
-                    $errors[] = "Item $index: Faltan campos requeridos (lote, medidor o mediciones).";
+                    $errors[] = "Item $index: Faltan campos requeridos.";
                     $errorCount++;
                     continue;
                 }
@@ -91,7 +63,6 @@ class ImportMedicionesController extends Controller
                     continue;
                 }
 
-                // Buscar usuario
                 $user = User::where('lote', $lote)->first();
                 if (!$user) {
                     $errors[] = "Lote $lote: No encontrado en el sistema.";
@@ -105,7 +76,7 @@ class ImportMedicionesController extends Controller
                     continue;
                 }
 
-                // Última medición
+                // Obtener última medición existente
                 $lastMedicion = Medicion::where('lote', $lote)
                                         ->orderBy('fecha', 'desc')
                                         ->first();
@@ -114,6 +85,8 @@ class ImportMedicionesController extends Controller
                 $medidaAnt = $lastMedicion ? $lastMedicion->valormedido : 0;
                 $tomaAnt = $lastMedicion ? $lastMedicion->fecha : null;
 
+                // Procesar cada medición del lote (ordenadas por fecha)
+                // Las mediciones ya vienen ordenadas desde el frontend
                 foreach ($item['mediciones'] as $medIdx => $med) {
                     $fechaStr = $med['fecha'] ?? null;
                     $valor = isset($med['valor']) ? (float) $med['valor'] : null;
@@ -148,11 +121,17 @@ class ImportMedicionesController extends Controller
                         continue;
                     }
 
-                    $consumo = $valor - $medidaAnt;
-                    if ($consumo < 0) {
-                        $errors[] = "Lote $lote: Consumo negativo ($consumo) para fecha {$fecha->format('Y-m-d')}.";
-                        $errorCount++;
-                        continue;
+                    // ✅ Cálculo de consumo CORREGIDO
+                    // Si es la primera medición del lote, el consumo es 0
+                    if ($tomaAnt === null) {
+                        $consumo = 0;
+                    } else {
+                        $consumo = $valor - $medidaAnt;
+                        if ($consumo < 0) {
+                            $errors[] = "Lote $lote: Consumo negativo ($consumo) para fecha {$fecha->format('Y-m-d')}.";
+                            $errorCount++;
+                            continue;
+                        }
                     }
 
                     $vencimiento = (clone $fecha)->addDays(30);
@@ -197,8 +176,7 @@ class ImportMedicionesController extends Controller
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage(),
                 'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'line' => $e->getLine()
             ], 500);
         }
     }

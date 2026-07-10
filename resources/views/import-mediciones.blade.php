@@ -49,6 +49,13 @@
     .preview-table .table-success {
         background-color: #d1e7dd !important;
     }
+    .preview-table thead th {
+        position: sticky;
+        top: 0;
+        background: #343a40;
+        color: white;
+        z-index: 10;
+    }
     .step {
         animation: fadeIn 0.3s ease;
     }
@@ -271,7 +278,7 @@
                     <div id="importStep3" class="step" style="display:none;">
                         <hr>
                         <h5><i class="bi bi-eye"></i> Paso 3: Previsualización y validación</h5>
-                        <p class="text-muted">Revisa los datos antes de importar. Las filas con errores se marcarán en rojo.</p>
+                        <p class="text-muted">Revisa los datos antes de importar. Cada columna de medición se mostrará con su fecha.</p>
 
                         <div id="importPreviewSummary" class="summary-card"></div>
 
@@ -330,7 +337,6 @@
 </script>
 
 <script>
-// ✅ Usamos nombres de variables únicos con prefijo "import"
 (function() {
     'use strict';
 
@@ -438,9 +444,10 @@
                 });
                 importSheetSelection.style.display = 'block';
 
+                // Seleccionar hoja por defecto (MEDICION CONTRA FACTURA DE AYSA)
                 let defaultSheet = 0;
                 importSheetNames.forEach((name, idx) => {
-                    if (name.toUpperCase().includes('MEDICION')) {
+                    if (name.includes('MEDICION CONTRA FACTURA')) {
                         defaultSheet = idx;
                     }
                 });
@@ -608,6 +615,8 @@
     // ============================================
     function parseImportDateFromHeader(header) {
         if (!header) return null;
+        
+        // Buscar patrones de fecha: "03/12", "02/01/2026", "12/11/2025"
         let match = header.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
         if (match) {
             const day = parseInt(match[1]);
@@ -616,6 +625,7 @@
             if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
                 let y = year;
                 if (!y) {
+                    // Si no tiene año, asumir 2025 o 2026
                     const currentYear = new Date().getFullYear();
                     if (month >= 11) y = currentYear - 1;
                     else y = currentYear;
@@ -662,6 +672,7 @@
         importPreviewData = [];
         const errors = [];
 
+        // Procesar cada fila
         importRows.forEach((row, rowIdx) => {
             const lote = String(row[mapping.lote] || '').trim();
             const medidor = String(row[mapping.medidor] || '').trim();
@@ -672,13 +683,20 @@
                 return;
             }
 
+            // ✅ Obtener todas las mediciones con sus fechas
             const mediciones = [];
             mapping.fechas.forEach(colIdx => {
                 const valor = parseFloat(row[colIdx]);
                 if (!isNaN(valor) && valor >= 0) {
                     const fechaHeader = importHeaders[colIdx] || '';
                     const fecha = parseImportDateFromHeader(fechaHeader);
-                    mediciones.push({ fecha: fecha, valor: valor, header: fechaHeader });
+                    mediciones.push({ 
+                        fecha: fecha, 
+                        valor: valor, 
+                        header: fechaHeader,
+                        // ✅ Calcular consumo (0 para la primera)
+                        consumo: 0 // Se recalculará en el backend
+                    });
                 }
             });
 
@@ -687,9 +705,21 @@
                 return;
             }
 
+            // Ordenar por fecha (de más antigua a más reciente)
             mediciones.sort((a, b) => {
                 if (a.fecha && b.fecha) return a.fecha - b.fecha;
                 return 0;
+            });
+
+            // ✅ Asignar consumo: 0 para la primera, diferencia para las siguientes
+            let valorAnterior = 0;
+            mediciones.forEach((med, idx) => {
+                if (idx === 0) {
+                    med.consumo = 0; // Primera medición
+                } else {
+                    med.consumo = med.valor - valorAnterior;
+                }
+                valorAnterior = med.valor;
             });
 
             importPreviewData.push({
@@ -698,7 +728,7 @@
                 nombre: nombre,
                 mediciones: mediciones,
                 rowIndex: rowIdx + 2,
-                valid: true
+                valid: mediciones.length > 0
             });
         });
 
@@ -706,31 +736,50 @@
     }
 
     // ============================================
-    // RENDERIZAR PREVIEW
+    // RENDERIZAR PREVIEW DETALLADO
     // ============================================
     function renderImportPreview(data, errors) {
         const tbody = document.getElementById('importPreviewBody');
         const thead = document.getElementById('importPreviewHead');
         tbody.innerHTML = '';
 
-        let headerHtml = '<tr><th>#</th><th>Lote</th><th>Medidor</th><th>Nombre</th>';
+        // ✅ Construir cabeceras dinámicas con todas las fechas
+        // Primero, recopilar todas las fechas únicas
         const allDates = new Set();
         data.forEach(item => {
             item.mediciones.forEach(m => {
                 if (m.fecha) {
                     allDates.add(m.fecha.toISOString().split('T')[0]);
-                } else if (m.header) {
-                    allDates.add(m.header);
                 }
             });
         });
         const sortedDates = Array.from(allDates).sort();
-        sortedDates.forEach(date => {
-            headerHtml += '<th>' + date + '</th>';
-        });
-        headerHtml += '<th>Estado</th></tr>';
-        thead.innerHTML = headerHtml;
 
+        // ✅ Cabeceras: Lote, Medidor, Nombre, y cada fecha con su valor y consumo
+        let headerHtml = '<tr>';
+        headerHtml += '<th>#</th>';
+        headerHtml += '<th>Lote</th>';
+        headerHtml += '<th>Medidor</th>';
+        headerHtml += '<th>Nombre</th>';
+        
+        sortedDates.forEach(date => {
+            headerHtml += `<th colspan="2" class="text-center">${date}</th>`;
+        });
+        
+        headerHtml += '<th>Estado</th></tr>';
+        
+        // Sub-cabeceras: Valor y Consumo para cada fecha
+        let subHeaderHtml = '<tr>';
+        subHeaderHtml += '<th></th><th></th><th></th><th></th>';
+        sortedDates.forEach(date => {
+            subHeaderHtml += `<th class="text-success">Valor</th>`;
+            subHeaderHtml += `<th class="text-primary">Consumo</th>`;
+        });
+        subHeaderHtml += '<th></th></tr>';
+        
+        thead.innerHTML = headerHtml + subHeaderHtml;
+
+        // ✅ Filas de datos
         let validCount = 0;
         let errorCount = 0;
         let totalMediciones = 0;
@@ -741,37 +790,53 @@
             else errorCount++;
             totalMediciones += item.mediciones.length;
 
-            let rowHtml = '<tr class="' + (isValid ? '' : 'table-danger') + '">';
-            rowHtml += '<td>' + item.rowIndex + '</td>';
-            rowHtml += '<td><strong>' + item.lote + '</strong></td>';
-            rowHtml += '<td>' + item.medidor + '</td>';
-            rowHtml += '<td>' + (item.nombre || '-') + '</td>';
-
+            // Mapa de valores por fecha
             const valuesByDate = {};
+            const consumosByDate = {};
             item.mediciones.forEach(m => {
-                const key = m.fecha ? m.fecha.toISOString().split('T')[0] : m.header;
-                valuesByDate[key] = m.valor;
+                if (m.fecha) {
+                    const key = m.fecha.toISOString().split('T')[0];
+                    valuesByDate[key] = m.valor;
+                    consumosByDate[key] = m.consumo;
+                }
             });
 
+            let rowHtml = `<tr class="${isValid ? '' : 'table-danger'}">`;
+            rowHtml += `<td>${item.rowIndex}</td>`;
+            rowHtml += `<td><strong>${item.lote}</strong></td>`;
+            rowHtml += `<td>${item.medidor}</td>`;
+            rowHtml += `<td>${item.nombre || '-'}</td>`;
+
+            // ✅ Mostrar Valor y Consumo para cada fecha
             sortedDates.forEach(date => {
                 const val = valuesByDate[date];
-                rowHtml += '<td>' + (val !== undefined ? val : '-') + '</td>';
+                const cons = consumosByDate[date];
+                rowHtml += `<td class="text-success">${val !== undefined ? val : '-'}</td>`;
+                rowHtml += `<td class="text-primary">${cons !== undefined ? cons : '-'}</td>`;
             });
 
             const statusBadge = isValid ?
                 '<span class="badge bg-success">Válido</span>' :
                 '<span class="badge bg-danger">Error</span>';
-            rowHtml += '<td>' + statusBadge + '</td></tr>';
+            rowHtml += `<td>${statusBadge}</td></tr>`;
 
             tbody.innerHTML += rowHtml;
         });
 
+        // ✅ Resumen con total de mediciones
         document.getElementById('importPreviewSummary').innerHTML = `
             <div class="row">
                 <div class="col-md-3"><div class="text-center"><div class="number">${data.length}</div><div class="label">Total filas</div></div></div>
                 <div class="col-md-3"><div class="text-center text-success"><div class="number">${validCount}</div><div class="label">Válidas</div></div></div>
                 <div class="col-md-3"><div class="text-center text-danger"><div class="number">${errorCount}</div><div class="label">Con errores</div></div></div>
-                <div class="col-md-3"><div class="text-center text-primary"><div class="number">${totalMediciones}</div><div class="label">Mediciones</div></div></div>
+                <div class="col-md-3"><div class="text-center text-primary"><div class="number">${totalMediciones}</div><div class="label">Mediciones totales</div></div></div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12 text-center text-muted small">
+                    <span class="text-success">■ Valor</span>
+                    <span class="text-primary ms-2">■ Consumo</span>
+                    <span class="ms-2">| El consumo de la primera fecha es 0</span>
+                </div>
             </div>
         `;
 
