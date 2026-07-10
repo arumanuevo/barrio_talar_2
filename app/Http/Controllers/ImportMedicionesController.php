@@ -23,21 +23,16 @@ class ImportMedicionesController extends Controller
      * ✅ LIMPIA EL NÚMERO DE LOTE:
      * - Elimina ceros a la izquierda (ej: 029 → 29)
      * - Elimina sufijos como -INQ (ya limpiado en Excel)
-     * - Convierte a entero y luego a string para eliminar ceros a la izquierda
      */
     private function cleanLote($lote)
     {
-        // Si está vacío, retornar vacío
         if (empty($lote)) {
             return '';
         }
 
-        // Eliminar espacios
         $lote = trim($lote);
 
-        // Si es un número (incluyendo con ceros a la izquierda), convertir a entero y luego a string
         if (is_numeric($lote)) {
-            // Convertir a entero (elimina ceros a la izquierda automáticamente)
             $lote = (string) intval($lote);
         }
 
@@ -73,34 +68,56 @@ class ImportMedicionesController extends Controller
             DB::beginTransaction();
 
             foreach ($importData as $index => $item) {
-                if (!isset($item['lote']) || !isset($item['medidor']) || !isset($item['mediciones'])) {
-                    $errors[] = "Item $index: Faltan campos requeridos.";
+                // ✅ Obtener lote y nombre para mensajes de error más claros
+                $loteOriginal = isset($item['lote']) ? trim($item['lote']) : 'DESCONOCIDO';
+                $nombre = isset($item['nombre']) ? trim($item['nombre']) : 'Sin nombre';
+                $medidor = isset($item['medidor']) ? trim($item['medidor']) : '';
+
+                // ✅ Validar campos requeridos con mensajes específicos
+                if (!isset($item['lote']) || empty(trim($item['lote']))) {
+                    $errors[] = "Item $index (Lote: DESCONOCIDO, Nombre: $nombre): Falta el campo LOTE.";
                     $errorCount++;
                     continue;
                 }
 
-                // ✅ LIMPIAR LOTE: eliminar ceros a la izquierda
-                $loteOriginal = trim($item['lote']);
+                if (!isset($item['medidor']) || empty(trim($item['medidor']))) {
+                    $errors[] = "Item $index (Lote: $loteOriginal, Nombre: $nombre): Falta el campo MEDIDOR.";
+                    $errorCount++;
+                    continue;
+                }
+
+                if (!isset($item['mediciones']) || empty($item['mediciones'])) {
+                    $errors[] = "Item $index (Lote: $loteOriginal, Nombre: $nombre): No tiene mediciones (columnas de consumo vacías).";
+                    $errorCount++;
+                    continue;
+                }
+
+                // ✅ Limpiar lote
                 $lote = $this->cleanLote($loteOriginal);
-                $medidor = trim($item['medidor']);
 
-                if (empty($lote) || empty($medidor)) {
-                    $errors[] = "Item $index: Lote o medidor vacío (original: '$loteOriginal').";
+                if (empty($lote)) {
+                    $errors[] = "Item $index (Lote original: '$loteOriginal', Nombre: $nombre): Lote inválido después de limpiar.";
                     $errorCount++;
                     continue;
                 }
 
-                // Buscar usuario con el lote limpio
+                if (empty($medidor)) {
+                    $errors[] = "Item $index (Lote: $lote, Nombre: $nombre): Medidor vacío.";
+                    $errorCount++;
+                    continue;
+                }
+
+                // Buscar usuario
                 $user = User::where('lote', $lote)->first();
                 
                 if (!$user) {
-                    $errors[] = "Lote $lote (original: '$loteOriginal'): No encontrado en el sistema.";
+                    $errors[] = "Lote $lote (original: '$loteOriginal', Nombre: $nombre): No encontrado en el sistema.";
                     $errorCount++;
                     continue;
                 }
 
                 if ($user->medidor != $medidor) {
-                    $errors[] = "Lote $lote: Medidor $medidor no coincide con el registrado ({$user->medidor}).";
+                    $errors[] = "Lote $lote (Nombre: $nombre): Medidor $medidor no coincide con el registrado ({$user->medidor}).";
                     $errorCount++;
                     continue;
                 }
@@ -115,11 +132,17 @@ class ImportMedicionesController extends Controller
                 $tomaAnt = $lastMedicion ? $lastMedicion->fecha : null;
 
                 foreach ($item['mediciones'] as $medIdx => $med) {
-                    $fechaStr = $med['fecha'] ?? null;
+                    $fechaStr = isset($med['fecha']) ? $med['fecha'] : null;
                     $valor = isset($med['valor']) ? (float) $med['valor'] : null;
 
-                    if (!$fechaStr || $valor === null) {
-                        $errors[] = "Lote $lote, medición $medIdx: Datos inválidos.";
+                    if (!$fechaStr) {
+                        $errors[] = "Lote $lote (Nombre: $nombre), medición $medIdx: Fecha inválida o vacía.";
+                        $errorCount++;
+                        continue;
+                    }
+
+                    if ($valor === null) {
+                        $errors[] = "Lote $lote (Nombre: $nombre), medición $medIdx: Valor inválido o vacío.";
                         $errorCount++;
                         continue;
                     }
@@ -127,7 +150,7 @@ class ImportMedicionesController extends Controller
                     try {
                         $fecha = Carbon::parse($fechaStr)->startOfDay();
                     } catch (\Exception $e) {
-                        $errors[] = "Lote $lote, medición $medIdx: Formato de fecha inválido ($fechaStr).";
+                        $errors[] = "Lote $lote (Nombre: $nombre), medición $medIdx: Formato de fecha inválido ($fechaStr).";
                         $errorCount++;
                         continue;
                     }
@@ -136,18 +159,18 @@ class ImportMedicionesController extends Controller
                                         ->where('fecha', $fecha)
                                         ->exists();
                     if ($exists) {
-                        $errors[] = "Lote $lote: Ya existe medición para {$fecha->format('Y-m-d')}. Se omite.";
+                        $errors[] = "Lote $lote (Nombre: $nombre): Ya existe medición para {$fecha->format('Y-m-d')}. Se omite.";
                         $errorCount++;
                         continue;
                     }
 
-                    // ✅ Cálculo de consumo: 0 para la primera, diferencia para las siguientes
+                    // Cálculo de consumo: 0 para la primera, diferencia para las siguientes
                     if ($tomaAnt === null) {
                         $consumo = 0;
                     } else {
                         $consumo = $valor - $medidaAnt;
                         if ($consumo < 0) {
-                            $errors[] = "Lote $lote: Consumo negativo ($consumo) para fecha {$fecha->format('Y-m-d')}.";
+                            $errors[] = "Lote $lote (Nombre: $nombre): Consumo negativo ($consumo) para fecha {$fecha->format('Y-m-d')}.";
                             $errorCount++;
                             continue;
                         }
