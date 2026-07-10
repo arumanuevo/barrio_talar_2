@@ -37,11 +37,11 @@
         display: none;
     }
     .preview-table {
-        max-height: 500px;
+        max-height: 600px;
         overflow-y: auto;
     }
     .preview-table table {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
     }
     .preview-table .table-danger {
         background-color: #f8d7da !important;
@@ -55,6 +55,10 @@
         background: #343a40;
         color: white;
         z-index: 10;
+        white-space: nowrap;
+    }
+    .preview-table tbody td {
+        white-space: nowrap;
     }
     .step {
         animation: fadeIn 0.3s ease;
@@ -80,11 +84,11 @@
         margin-top: 15px;
     }
     .summary-card .number {
-        font-size: 1.8rem;
+        font-size: 1.5rem;
         font-weight: bold;
     }
     .summary-card .label {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         color: #6c757d;
     }
     .mapping-label {
@@ -111,7 +115,7 @@
     .btn {
         display: inline-block;
         padding: 0.375rem 0.75rem;
-        font-size: 1rem;
+        font-size: 0.9rem;
         border-radius: 0.25rem;
         border: 1px solid transparent;
         cursor: pointer;
@@ -126,7 +130,7 @@
     .btn-success:hover { background: #157347; }
     .btn-danger { background: #dc3545; color: white; border-color: #dc3545; }
     .btn-danger:hover { background: #b02a37; }
-    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
     .btn:disabled { opacity: 0.65; cursor: not-allowed; }
     .form-select {
         display: block;
@@ -167,7 +171,7 @@
     .text-success { color: #198754; }
     .text-danger { color: #dc3545; }
     .text-primary { color: #0d6efd; }
-    .badge { display: inline-block; padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; }
+    .badge { display: inline-block; padding: 0.2rem 0.4rem; font-size: 0.7rem; border-radius: 0.25rem; }
     .bg-success { background: #198754; color: white; }
     .bg-danger { background: #dc3545; color: white; }
     .bg-secondary { background: #6c757d; color: white; }
@@ -179,7 +183,7 @@
     .progress-bar-animated { animation: progress-bar-stripes 1s linear infinite; }
     @keyframes progress-bar-stripes { 0% { background-position: 1rem 0; } 100% { background-position: 0 0; } }
     .table { width: 100%; border-collapse: collapse; }
-    .table th, .table td { padding: 0.5rem; border: 1px solid #dee2e6; }
+    .table th, .table td { padding: 0.4rem 0.3rem; border: 1px solid #dee2e6; }
     .table-striped tbody tr:nth-of-type(odd) { background: #f8f9fa; }
     .table-bordered { border: 1px solid #dee2e6; }
     .table-responsive { overflow-x: auto; }
@@ -277,8 +281,8 @@
                     <!-- PASO 3: PREVISUALIZACIÓN -->
                     <div id="importStep3" class="step" style="display:none;">
                         <hr>
-                        <h5><i class="bi bi-eye"></i> Paso 3: Previsualización y validación</h5>
-                        <p class="text-muted">Revisa los datos antes de importar. Cada columna de medición se mostrará con su fecha.</p>
+                        <h5><i class="bi bi-eye"></i> Paso 3: Previsualización</h5>
+                        <p class="text-muted">Revisa cómo quedarán los registros en la tabla del sistema.</p>
 
                         <div id="importPreviewSummary" class="summary-card"></div>
 
@@ -353,7 +357,7 @@
     });
 
     // ============================================
-    // VARIABLES CON PREFIJO UNICO
+    // VARIABLES
     // ============================================
     let importCurrentFile = null;
     let importWorkbookData = null;
@@ -365,7 +369,7 @@
     let importDataToSend = [];
 
     // ============================================
-    // ELEMENTOS DOM CON PREFIJO
+    // ELEMENTOS DOM
     // ============================================
     const importDropZone = document.getElementById('importDropZone');
     const importFileInput = document.getElementById('importFileInput');
@@ -616,7 +620,6 @@
     function parseImportDateFromHeader(header) {
         if (!header) return null;
         
-        // Buscar patrones de fecha: "03/12", "02/01/2026", "12/11/2025"
         let match = header.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
         if (match) {
             const day = parseInt(match[1]);
@@ -625,7 +628,6 @@
             if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
                 let y = year;
                 if (!y) {
-                    // Si no tiene año, asumir 2025 o 2026
                     const currentYear = new Date().getFullYear();
                     if (month >= 11) y = currentYear - 1;
                     else y = currentYear;
@@ -641,7 +643,7 @@
     }
 
     // ============================================
-    // PREVISUALIZAR DATOS
+    // PREVISUALIZAR DATOS (Formato tabla del sistema)
     // ============================================
     function previewImportData() {
         const mapping = {
@@ -672,7 +674,7 @@
         importPreviewData = [];
         const errors = [];
 
-        // Procesar cada fila
+        // ✅ Procesar cada fila del Excel
         importRows.forEach((row, rowIdx) => {
             const lote = String(row[mapping.lote] || '').trim();
             const medidor = String(row[mapping.medidor] || '').trim();
@@ -683,7 +685,7 @@
                 return;
             }
 
-            // ✅ Obtener todas las mediciones con sus fechas
+            // ✅ Recolectar todas las mediciones de este lote
             const mediciones = [];
             mapping.fechas.forEach(colIdx => {
                 const valor = parseFloat(row[colIdx]);
@@ -693,9 +695,7 @@
                     mediciones.push({ 
                         fecha: fecha, 
                         valor: valor, 
-                        header: fechaHeader,
-                        // ✅ Calcular consumo (0 para la primera)
-                        consumo: 0 // Se recalculará en el backend
+                        header: fechaHeader
                     });
                 }
             });
@@ -705,30 +705,48 @@
                 return;
             }
 
-            // Ordenar por fecha (de más antigua a más reciente)
+            // ✅ Ordenar por fecha (de más antigua a más reciente)
             mediciones.sort((a, b) => {
                 if (a.fecha && b.fecha) return a.fecha - b.fecha;
                 return 0;
             });
 
-            // ✅ Asignar consumo: 0 para la primera, diferencia para las siguientes
+            // ✅ Crear un registro por cada medición (formato tabla del sistema)
             let valorAnterior = 0;
-            mediciones.forEach((med, idx) => {
-                if (idx === 0) {
-                    med.consumo = 0; // Primera medición
-                } else {
-                    med.consumo = med.valor - valorAnterior;
-                }
-                valorAnterior = med.valor;
-            });
+            let fechaAnterior = null;
+            let indice = 1;
 
-            importPreviewData.push({
-                lote: lote,
-                medidor: medidor,
-                nombre: nombre,
-                mediciones: mediciones,
-                rowIndex: rowIdx + 2,
-                valid: mediciones.length > 0
+            mediciones.forEach((med, idx) => {
+                const esPrimera = (idx === 0);
+                const consumo = esPrimera ? 0 : med.valor - valorAnterior;
+                
+                // Calcular vencimiento (30 días después de la fecha)
+                const vencimiento = new Date(med.fecha);
+                vencimiento.setDate(vencimiento.getDate() + 30);
+
+                importPreviewData.push({
+                    lote: lote,
+                    medidor: medidor,
+                    nombre: nombre,
+                    indice: indice,
+                    fecha: med.fecha,
+                    vencimiento: vencimiento,
+                    tomaant: fechaAnterior,
+                    medidaant: esPrimera ? 0 : valorAnterior,
+                    valormedido: med.valor,
+                    consumo: consumo,
+                    periodo: 30,
+                    inspector: 'admin',
+                    foto: 'Sin foto',
+                    pagado: 'NO',
+                    rowIndex: rowIdx + 2,
+                    esPrimera: esPrimera,
+                    valid: true
+                });
+
+                valorAnterior = med.valor;
+                fechaAnterior = med.fecha;
+                indice++;
             });
         });
 
@@ -736,110 +754,99 @@
     }
 
     // ============================================
-    // RENDERIZAR PREVIEW DETALLADO
+    // RENDERIZAR PREVIEW (Formato tabla del sistema)
     // ============================================
     function renderImportPreview(data, errors) {
         const tbody = document.getElementById('importPreviewBody');
         const thead = document.getElementById('importPreviewHead');
         tbody.innerHTML = '';
 
-        // ✅ Construir cabeceras dinámicas con todas las fechas
-        // Primero, recopilar todas las fechas únicas
-        const allDates = new Set();
-        data.forEach(item => {
-            item.mediciones.forEach(m => {
-                if (m.fecha) {
-                    allDates.add(m.fecha.toISOString().split('T')[0]);
-                }
-            });
-        });
-        const sortedDates = Array.from(allDates).sort();
+        // ✅ Cabeceras fijas (como en la tabla del sistema)
+        const headers = [
+            '#', 'Lote', 'Medidor', 'Nombre', 'Índice', 'Fecha', 'Vencimiento',
+            'Toma Ant.', 'Medida Ant.', 'Valor Medido', 'Consumo', 'Periodo',
+            'Inspector', 'Estado'
+        ];
 
-        // ✅ Cabeceras: Lote, Medidor, Nombre, y cada fecha con su valor y consumo
         let headerHtml = '<tr>';
-        headerHtml += '<th>#</th>';
-        headerHtml += '<th>Lote</th>';
-        headerHtml += '<th>Medidor</th>';
-        headerHtml += '<th>Nombre</th>';
-        
-        sortedDates.forEach(date => {
-            headerHtml += `<th colspan="2" class="text-center">${date}</th>`;
+        headers.forEach(h => {
+            headerHtml += `<th>${h}</th>`;
         });
-        
-        headerHtml += '<th>Estado</th></tr>';
-        
-        // Sub-cabeceras: Valor y Consumo para cada fecha
-        let subHeaderHtml = '<tr>';
-        subHeaderHtml += '<th></th><th></th><th></th><th></th>';
-        sortedDates.forEach(date => {
-            subHeaderHtml += `<th class="text-success">Valor</th>`;
-            subHeaderHtml += `<th class="text-primary">Consumo</th>`;
-        });
-        subHeaderHtml += '<th></th></tr>';
-        
-        thead.innerHTML = headerHtml + subHeaderHtml;
+        headerHtml += '</tr>';
+        thead.innerHTML = headerHtml;
 
         // ✅ Filas de datos
         let validCount = 0;
         let errorCount = 0;
-        let totalMediciones = 0;
 
         data.forEach((item, idx) => {
-            const isValid = item.mediciones.length > 0;
+            const isValid = item.valid !== false;
             if (isValid) validCount++;
             else errorCount++;
-            totalMediciones += item.mediciones.length;
 
-            // Mapa de valores por fecha
-            const valuesByDate = {};
-            const consumosByDate = {};
-            item.mediciones.forEach(m => {
-                if (m.fecha) {
-                    const key = m.fecha.toISOString().split('T')[0];
-                    valuesByDate[key] = m.valor;
-                    consumosByDate[key] = m.consumo;
-                }
-            });
+            const fechaStr = item.fecha ? item.fecha.toISOString().split('T')[0] : 'N/A';
+            const vencimientoStr = item.vencimiento ? item.vencimiento.toISOString().split('T')[0] : 'N/A';
+            const tomaantStr = item.tomaant ? item.tomaant.toISOString().split('T')[0] : 'NULL';
 
             let rowHtml = `<tr class="${isValid ? '' : 'table-danger'}">`;
-            rowHtml += `<td>${item.rowIndex}</td>`;
+            rowHtml += `<td>${idx + 1}</td>`;
             rowHtml += `<td><strong>${item.lote}</strong></td>`;
             rowHtml += `<td>${item.medidor}</td>`;
             rowHtml += `<td>${item.nombre || '-'}</td>`;
-
-            // ✅ Mostrar Valor y Consumo para cada fecha
-            sortedDates.forEach(date => {
-                const val = valuesByDate[date];
-                const cons = consumosByDate[date];
-                rowHtml += `<td class="text-success">${val !== undefined ? val : '-'}</td>`;
-                rowHtml += `<td class="text-primary">${cons !== undefined ? cons : '-'}</td>`;
-            });
-
+            rowHtml += `<td>${item.indice}</td>`;
+            rowHtml += `<td>${fechaStr}</td>`;
+            rowHtml += `<td>${vencimientoStr}</td>`;
+            rowHtml += `<td>${tomaantStr}</td>`;
+            rowHtml += `<td>${item.medidaant}</td>`;
+            rowHtml += `<td>${item.valormedido}</td>`;
+            
+            // ✅ Consumo con color (0 = verde, positivo = azul)
+            const consumoClass = item.consumo === 0 ? 'text-success' : 'text-primary';
+            rowHtml += `<td class="${consumoClass} fw-bold">${item.consumo}</td>`;
+            
+            rowHtml += `<td>${item.periodo}</td>`;
+            rowHtml += `<td>${item.inspector}</td>`;
+            
             const statusBadge = isValid ?
-                '<span class="badge bg-success">Válido</span>' :
+                '<span class="badge bg-success">OK</span>' :
                 '<span class="badge bg-danger">Error</span>';
             rowHtml += `<td>${statusBadge}</td></tr>`;
 
             tbody.innerHTML += rowHtml;
         });
 
-        // ✅ Resumen con total de mediciones
+        // ✅ Resumen
         document.getElementById('importPreviewSummary').innerHTML = `
             <div class="row">
-                <div class="col-md-3"><div class="text-center"><div class="number">${data.length}</div><div class="label">Total filas</div></div></div>
-                <div class="col-md-3"><div class="text-center text-success"><div class="number">${validCount}</div><div class="label">Válidas</div></div></div>
-                <div class="col-md-3"><div class="text-center text-danger"><div class="number">${errorCount}</div><div class="label">Con errores</div></div></div>
-                <div class="col-md-3"><div class="text-center text-primary"><div class="number">${totalMediciones}</div><div class="label">Mediciones totales</div></div></div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <div class="number">${data.length}</div>
+                        <div class="label">Total registros a insertar</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center text-success">
+                        <div class="number">${validCount}</div>
+                        <div class="label">Válidos</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center text-danger">
+                        <div class="number">${errorCount}</div>
+                        <div class="label">Con errores</div>
+                    </div>
+                </div>
             </div>
             <div class="row mt-2">
                 <div class="col-12 text-center text-muted small">
-                    <span class="text-success">■ Valor</span>
-                    <span class="text-primary ms-2">■ Consumo</span>
-                    <span class="ms-2">| El consumo de la primera fecha es 0</span>
+                    <span class="text-success">■ Consumo = 0</span>
+                    <span class="text-primary ms-2">■ Consumo > 0</span>
+                    <span class="ms-2">| Primera medición de cada lote tiene consumo = 0</span>
                 </div>
             </div>
         `;
 
+        // ✅ Mostrar errores si existen
         const importErrors = document.getElementById('importErrors');
         if (errors.length > 0) {
             importErrors.style.display = 'block';
@@ -848,6 +855,7 @@
             importErrors.style.display = 'none';
         }
 
+        // ✅ Guardar datos para importar
         importDataToSend = data;
         document.getElementById('importStep2').style.display = 'none';
         document.getElementById('importStep3').style.display = 'block';
@@ -862,7 +870,7 @@
             return;
         }
 
-        const validData = importDataToSend.filter(item => item.mediciones.length > 0);
+        const validData = importDataToSend.filter(item => item.valid !== false);
         if (validData.length === 0) {
             showImportAlert('No hay datos válidos para importar.', 'warning');
             return;
@@ -874,16 +882,25 @@
         document.getElementById('importProgressBar').textContent = '10%';
         document.getElementById('importProgressText').textContent = 'Preparando datos...';
 
-        const payload = validData.map(item => ({
-            lote: item.lote,
-            medidor: item.medidor,
-            nombre: item.nombre,
-            mediciones: item.mediciones.map(m => ({
-                fecha: m.fecha ? m.fecha.toISOString().split('T')[0] : null,
-                valor: m.valor,
-                header: m.header || null
-            }))
-        }));
+        // ✅ Agrupar por lote para enviar al backend
+        const groupedByLote = {};
+        validData.forEach(item => {
+            if (!groupedByLote[item.lote]) {
+                groupedByLote[item.lote] = {
+                    lote: item.lote,
+                    medidor: item.medidor,
+                    nombre: item.nombre,
+                    mediciones: []
+                };
+            }
+            groupedByLote[item.lote].mediciones.push({
+                fecha: item.fecha ? item.fecha.toISOString().split('T')[0] : null,
+                valor: item.valormedido,
+                consumo: item.consumo
+            });
+        });
+
+        const payload = Object.values(groupedByLote);
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
