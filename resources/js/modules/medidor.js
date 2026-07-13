@@ -65,7 +65,10 @@ var objMedidor = {
                // return;
                 $.ajax({
                     headers: {
-                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                        'Content-Type' : 'application/json',
+                        'X-Requested-With' : 'XMLHttpRequest',
+                        //'Authorization' : token
                     },
                     type: "POST",
                     xhrFields: {
@@ -150,7 +153,10 @@ var objMedidor = {
                         withCredentials: false
                     },
                     headers: {
-                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                        'Content-Type' : 'application/json',
+                        'X-Requested-With' : 'XMLHttpRequest',
+                        //'Authorization' : token
                     },
                     url: urlConsulta,
                     crossDomain:true,
