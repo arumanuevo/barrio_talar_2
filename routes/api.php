@@ -44,7 +44,7 @@ Route::post('/import-mediciones/import', [App\Http\Controllers\ImportMedicionesC
 
 Route::middleware('auth:sanctum')->group(function () {
     // Rutas existentes
-    Route::get('/getMedidor', [App\Http\Controllers\ApiGeneral::class, 'getMedidor'])->name('getMedidor');
+    
     Route::get('/getToken', [App\Http\Controllers\ApiGeneral::class, 'getToken'])->name('getToken');
     Route::post('/postMed', [App\Http\Controllers\ApiGeneral::class, 'postMed'])->name('postMed');
     Route::post('/postBorrarMedicion', [App\Http\Controllers\ApiGeneral::class, 'postBorrarMedicion'])->name('postBorrarMedicion');
@@ -55,3 +55,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/getGuardarFacturas', [App\Http\Controllers\ApiGeneral::class, 'getGuardarFacturas'])->name('getGuardarFacturas');
     Route::post('/postGuardarFacturas', [App\Http\Controllers\ApiGeneral::class, 'postGuardarFacturas'])->name('postGuardarFacturas');
 });
+
+Route::get('/getMedidor', [App\Http\Controllers\ApiGeneral::class, 'getMedidor'])->name('getMedidor');
