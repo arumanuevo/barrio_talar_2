@@ -392,6 +392,7 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
+        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
         document.addEventListener('DOMContentLoaded', function() {
             // ============================================
             // CONFIGURACIÓN DE DEBUG
