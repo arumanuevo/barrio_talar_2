@@ -189,7 +189,7 @@ class ImportMedicionesController extends Controller
                         'medidaant' => $medidaAnt,
                         'valormedido' => $valor,
                         'consumo' => $consumo,
-                        'inspector' => $user->name ?? 'admin',
+                        'inspector' => auth()->user()->name ?? 'admin',
                         'foto' => 'Sin foto',
                         'pagado' => 'NO'
                     ]);
