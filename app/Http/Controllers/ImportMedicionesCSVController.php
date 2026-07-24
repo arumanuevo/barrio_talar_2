@@ -180,7 +180,8 @@ class ImportMedicionesCSVController extends Controller
             'valid_data' => [],
             'missing_users' => [],
             'medidor_mismatch' => [],
-            'column_mapping' => $columnMapping
+            'column_mapping' => $columnMapping,
+            'column_equivalence' => $this->getColumnEquivalence($columnMapping)
         ];
 
         // Obtener todos los lotes y medidores de la tabla madre
@@ -276,9 +277,7 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // ✅ Calcular el nuevo valormedido
-            // El consumo en el CSV es el valor medido actual
-            // El consumo en la tabla madre es la diferencia con la medición anterior
+            // ✅ El consumo en el CSV es el valor medido actual
             $valormedido = $consumoFloat;
             $consumoCalculado = 0;
 
@@ -293,19 +292,19 @@ class ImportMedicionesCSVController extends Controller
             } else {
                 // Primera medición del lote
                 $consumoCalculado = 0;
-                $report['warnings'][] = "Fila $rowNumber: Primera medición del lote $lote. Se creará con consumo 0.";
             }
 
             // Guardar datos válidos
             $report['valid_data'][] = [
                 'lote' => $lote,
                 'medidor' => $medidorBD, // ✅ Usar el medidor de la BD (el correcto)
-                'valormedido' => $valormedido,
-                'consumo' => $consumoCalculado,
+                'valormedido' => $valormedido, // ✅ El valor medido (consumo del CSV)
+                'consumo' => $consumoCalculado, // ✅ La diferencia con la medición anterior
                 'fecha' => $fecha->format('Y-m-d'),
                 'foto' => $foto ?: 'Sin foto',
                 'last_measurement' => $lastMeasurement,
-                'es_primera' => $lastMeasurement ? false : true
+                'es_primera' => $lastMeasurement ? false : true,
+                'medidor_csv' => $medidorCSV // Para mostrar en el informe
             ];
 
             $report['new_measurements']++;
@@ -322,6 +321,32 @@ class ImportMedicionesCSVController extends Controller
         ];
 
         return $report;
+    }
+
+    /**
+     * Obtener la equivalencia de columnas para mostrar en el informe
+     */
+    private function getColumnEquivalence($columnMapping)
+    {
+        $equivalence = [];
+        
+        $fieldNames = [
+            'lote' => 'Lote',
+            'medidor' => 'Medidor',
+            'consumo' => 'Valor Medido (CSV)',
+            'fecha' => 'Fecha',
+            'foto' => 'Foto'
+        ];
+
+        foreach ($fieldNames as $field => $label) {
+            $csvColumn = $columnMapping[$field];
+            $equivalence[] = [
+                'campo_tabla' => $label,
+                'columna_csv' => $csvColumn ?: 'No detectada'
+            ];
+        }
+
+        return $equivalence;
     }
 
     /**
@@ -346,7 +371,6 @@ class ImportMedicionesCSVController extends Controller
 
         $lote = trim($lote);
 
-        // Si es numérico, eliminar ceros a la izquierda
         if (is_numeric($lote)) {
             $lote = (string) intval($lote);
         }
@@ -514,60 +538,91 @@ class ImportMedicionesCSVController extends Controller
             
             $handle = fopen('php://temp', 'r+');
             
-            // Cabeceras
+            // ============================================
+            // SECCIÓN 1: EQUIVALENCIA DE COLUMNAS
+            // ============================================
+            fputcsv($handle, ['=== EQUIVALENCIA DE COLUMNAS ===']);
+            fputcsv($handle, ['Campo en la Tabla Madre', 'Columna detectada en el CSV']);
+            
+            foreach ($reportData['column_equivalence'] as $eq) {
+                fputcsv($handle, [$eq['campo_tabla'], $eq['columna_csv']]);
+            }
+            
+            fputcsv($handle, ['']);
+            fputcsv($handle, ['']);
+            
+            // ============================================
+            // SECCIÓN 2: CABECERAS DE LA TABLA MADRE
+            // ============================================
+            fputcsv($handle, ['=== DATOS A IMPORTAR ===']);
             fputcsv($handle, [
-                'Tipo',
                 'Fila',
                 'Lote',
-                'Medidor CSV',
-                'Medidor BD',
+                'Medidor (BD)',
+                'Medidor (CSV)',
                 'Valor Medido',
                 'Consumo Calculado',
                 'Fecha',
-                'Mensaje'
+                'Foto',
+                'Estado'
             ]);
 
-            // Errores
-            foreach ($reportData['errors'] as $error) {
+            // ============================================
+            // SECCIÓN 3: DATOS VÁLIDOS
+            // ============================================
+            foreach ($reportData['valid_data'] as $item) {
+                $estado = 'OK';
+                if (isset($item['es_primera']) && $item['es_primera']) {
+                    $estado = 'Primera Medición';
+                } elseif (isset($item['consumo']) && $item['consumo'] < 0) {
+                    $estado = 'Consumo Negativo';
+                }
+                
                 fputcsv($handle, [
-                    'ERROR',
-                    $error['row'] ?? 'N/A',
-                    $error['lote'] ?? 'N/A',
-                    $error['medidor_csv'] ?? 'N/A',
-                    $error['medidor_bd'] ?? 'N/A',
-                    $error['valormedido'] ?? 'N/A',
-                    $error['consumo'] ?? 'N/A',
-                    $error['fecha'] ?? 'N/A',
-                    $error['message'] ?? 'N/A'
+                    $item['row'] ?? 'N/A',
+                    $item['lote'],
+                    $item['medidor'],
+                    $item['medidor_csv'] ?? 'N/A',
+                    $item['valormedido'],
+                    $item['consumo'],
+                    $item['fecha'],
+                    $item['foto'],
+                    $estado
                 ]);
             }
 
-            // Advertencias
-            foreach ($reportData['warnings'] as $warning) {
-                fputcsv($handle, [
-                    'WARNING',
-                    $warning['row'] ?? 'N/A',
-                    $warning['lote'] ?? 'N/A',
-                    $warning['medidor_csv'] ?? 'N/A',
-                    $warning['medidor_bd'] ?? 'N/A',
-                    $warning['valormedido'] ?? 'N/A',
-                    $warning['consumo'] ?? 'N/A',
-                    $warning['fecha'] ?? 'N/A',
-                    $warning['message'] ?? 'N/A'
-                ]);
+            // ============================================
+            // SECCIÓN 4: ERRORES Y ADVERTENCIAS
+            // ============================================
+            if (!empty($reportData['errors'])) {
+                fputcsv($handle, ['']);
+                fputcsv($handle, ['=== ERRORES ===']);
+                foreach ($reportData['errors'] as $error) {
+                    fputcsv($handle, [$error]);
+                }
             }
 
-            // Resumen
+            if (!empty($reportData['warnings'])) {
+                fputcsv($handle, ['']);
+                fputcsv($handle, ['=== ADVERTENCIAS ===']);
+                foreach ($reportData['warnings'] as $warning) {
+                    fputcsv($handle, [$warning]);
+                }
+            }
+
+            // ============================================
+            // SECCIÓN 5: RESUMEN
+            // ============================================
             fputcsv($handle, ['']);
-            fputcsv($handle, ['RESUMEN', '', '', '', '', '', '', '', '']);
-            fputcsv($handle, ['Total de registros:', $reportData['summary']['total_rows'], '', '', '', '', '', '', '']);
-            fputcsv($handle, ['Registros válidos:', $reportData['summary']['valid_rows'], '', '', '', '', '', '', '']);
-            fputcsv($handle, ['Errores:', $reportData['summary']['errors_count'], '', '', '', '', '', '', '']);
-            fputcsv($handle, ['Advertencias:', $reportData['summary']['warnings_count'], '', '', '', '', '', '', '']);
-            fputcsv($handle, ['Duplicados:', $reportData['summary']['duplicates_count'], '', '', '', '', '', '', '']);
-            fputcsv($handle, ['Discrepancias de medidor:', $reportData['summary']['medidor_mismatch_count'], '', '', '', '', '', '', '']);
-            fputcsv($handle, ['Fecha de generación:', date('Y-m-d H:i:s'), '', '', '', '', '', '', '']);
-            fputcsv($handle, ['Usuario:', auth()->user()->name ?? 'admin', '', '', '', '', '', '', '']);
+            fputcsv($handle, ['=== RESUMEN ===']);
+            fputcsv($handle, ['Total de registros:', $reportData['summary']['total_rows']]);
+            fputcsv($handle, ['Registros válidos:', $reportData['summary']['valid_rows']]);
+            fputcsv($handle, ['Errores:', $reportData['summary']['errors_count']]);
+            fputcsv($handle, ['Advertencias:', $reportData['summary']['warnings_count']]);
+            fputcsv($handle, ['Duplicados:', $reportData['summary']['duplicates_count']]);
+            fputcsv($handle, ['Discrepancias de medidor:', $reportData['summary']['medidor_mismatch_count']]);
+            fputcsv($handle, ['Fecha de generación:', date('Y-m-d H:i:s')]);
+            fputcsv($handle, ['Usuario:', auth()->user()->name ?? 'admin']);
 
             rewind($handle);
             $csvContent = stream_get_contents($handle);

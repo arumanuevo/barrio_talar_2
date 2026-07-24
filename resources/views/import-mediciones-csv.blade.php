@@ -478,106 +478,250 @@ function analyzeFile(file) {
         showAlert('Error al analizar el archivo: ' + error.message, 'danger');
     });
 }
-
-    function renderReport(data) {
-        // Resumen
-        previewSummary.style.display = 'block';
-        previewSummary.innerHTML = `
-            <div class="row">
-                <div class="col-md-2">
-                    <div class="text-center">
-                        <div class="number">${data.summary.total_rows}</div>
-                        <div class="label">Total filas</div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="text-center text-success">
-                        <div class="number">${data.summary.valid_rows}</div>
-                        <div class="label">Válidas</div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="text-center text-danger">
-                        <div class="number">${data.summary.errors_count}</div>
-                        <div class="label">Errores</div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="text-center text-warning">
-                        <div class="number">${data.summary.warnings_count}</div>
-                        <div class="label">Advertencias</div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="text-center text-info">
-                        <div class="number">${data.summary.duplicates_count}</div>
-                        <div class="label">Duplicados</div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="text-center text-primary">
-                        <div class="number">${data.new_measurements}</div>
-                        <div class="label">Nuevas mediciones</div>
-                    </div>
+function renderReport(data) {
+    console.log('Renderizando informe:', data);
+    
+    // ============================================
+    // 1. RESUMEN
+    // ============================================
+    previewSummary.style.display = 'block';
+    previewSummary.innerHTML = `
+        <div class="row">
+            <div class="col-md-2">
+                <div class="text-center">
+                    <div class="number">${data.summary.total_rows}</div>
+                    <div class="label">Total filas</div>
                 </div>
             </div>
-        `;
+            <div class="col-md-2">
+                <div class="text-center text-success">
+                    <div class="number">${data.summary.valid_rows}</div>
+                    <div class="label">Válidas</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="text-center text-danger">
+                    <div class="number">${data.summary.errors_count}</div>
+                    <div class="label">Errores</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="text-center text-warning">
+                    <div class="number">${data.summary.warnings_count}</div>
+                    <div class="label">Advertencias</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="text-center text-info">
+                    <div class="number">${data.summary.duplicates_count}</div>
+                    <div class="label">Duplicados</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="text-center text-primary">
+                    <div class="number">${data.new_measurements}</div>
+                    <div class="label">Nuevas mediciones</div>
+                </div>
+            </div>
+        </div>
+    `;
 
-        reportContainer.style.display = 'block';
-        actionButtons.style.display = 'block';
+    reportContainer.style.display = 'block';
+    actionButtons.style.display = 'block';
 
-        // Errores
-        if (data.errors && data.errors.length > 0) {
-            errorsContainer.style.display = 'block';
-            errorsList.innerHTML = data.errors.map(e => `<li>${e}</li>`).join('');
-        } else {
-            errorsContainer.style.display = 'none';
-        }
-
-        // Advertencias
-        if (data.warnings && data.warnings.length > 0) {
-            warningsContainer.style.display = 'block';
-            warningsList.innerHTML = data.warnings.map(w => `<li>${w}</li>`).join('');
-        } else {
-            warningsContainer.style.display = 'none';
-        }
-
-        // Usuarios faltantes
-        if (data.missing_users && data.missing_users.length > 0) {
-            missingUsersContainer.style.display = 'block';
-            missingUsersList.innerHTML = data.missing_users.map(u => 
-                `<li>Lote ${u.lote} (Fila ${u.row}) - Medidor: ${u.medidor}</li>`
-            ).join('');
-        } else {
-            missingUsersContainer.style.display = 'none';
-        }
-
-        // Datos válidos
-        if (data.valid_data && data.valid_data.length > 0) {
-            validDataContainer.style.display = 'block';
-            importData = data.valid_data;
-            
-            previewBody.innerHTML = data.valid_data.map((item, index) => {
-                const statusBadge = item.new_value >= item.last_value ? 
-                    '<span class="badge bg-success">OK</span>' :
-                    '<span class="badge bg-warning">Revisar</span>';
-                return `
-                    <tr class="${item.new_value >= item.last_value ? '' : 'table-warning'}">
-                        <td>${index + 1}</td>
-                        <td><strong>${item.lote}</strong></td>
-                        <td>${item.medidor}</td>
-                        <td>${item.consumo}</td>
-                        <td>${item.new_value}</td>
-                        <td>${item.fecha}</td>
-                        <td>${item.foto || 'Sin foto'}</td>
-                        <td>${statusBadge}</td>
+    // ============================================
+    // 2. EQUIVALENCIA DE COLUMNAS
+    // ============================================
+    let equivalenceHtml = `
+        <div class="alert alert-info mt-3">
+            <h6><i class="bi bi-arrow-left-right"></i> Equivalencia de columnas</h6>
+            <table class="table table-sm table-bordered mb-0">
+                <thead>
+                    <tr>
+                        <th>Campo en la Tabla Madre</th>
+                        <th>Columna detectada en el CSV</th>
                     </tr>
-                `;
-            }).join('');
-        } else {
-            validDataContainer.style.display = 'none';
-        }
+                </thead>
+                <tbody>
+    `;
+    
+    if (data.column_equivalence && data.column_equivalence.length > 0) {
+        data.column_equivalence.forEach(function(eq) {
+            equivalenceHtml += `
+                <tr>
+                    <td><strong>${eq.campo_tabla}</strong></td>
+                    <td>${eq.columna_csv}</td>
+                </tr>
+            `;
+        });
+    } else {
+        equivalenceHtml += `
+            <tr>
+                <td colspan="2" class="text-center text-muted">No se detectaron columnas</td>
+            </tr>
+        `;
     }
+    
+    equivalenceHtml += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    // Insertar antes de la tabla de datos (después del resumen)
+    previewSummary.insertAdjacentHTML('afterend', equivalenceHtml);
+
+    // ============================================
+    // 3. ERRORES
+    // ============================================
+    if (data.errors && data.errors.length > 0) {
+        errorsContainer.style.display = 'block';
+        errorsList.innerHTML = data.errors.map(function(e) {
+            return `<li><i class="bi bi-x-circle text-danger"></i> ${e}</li>`;
+        }).join('');
+    } else {
+        errorsContainer.style.display = 'none';
+    }
+
+    // ============================================
+    // 4. ADVERTENCIAS
+    // ============================================
+    if (data.warnings && data.warnings.length > 0) {
+        warningsContainer.style.display = 'block';
+        warningsList.innerHTML = data.warnings.map(function(w) {
+            return `<li><i class="bi bi-exclamation-triangle text-warning"></i> ${w}</li>`;
+        }).join('');
+    } else {
+        warningsContainer.style.display = 'none';
+    }
+
+    // ============================================
+    // 5. USUARIOS FALTANTES
+    // ============================================
+    if (data.missing_users && data.missing_users.length > 0) {
+        missingUsersContainer.style.display = 'block';
+        missingUsersList.innerHTML = data.missing_users.map(function(u) {
+            return `<li>Lote <strong>${u.lote}</strong> (Fila ${u.row}) - Medidor: ${u.medidor_csv || 'N/A'}</li>`;
+        }).join('');
+    } else {
+        missingUsersContainer.style.display = 'none';
+    }
+
+    // ============================================
+    // 6. DISCREPANCIAS DE MEDIDOR
+    // ============================================
+    if (data.medidor_mismatch && data.medidor_mismatch.length > 0) {
+        let mismatchHtml = `
+            <div class="alert alert-warning">
+                <h6><i class="bi bi-arrow-left-right"></i> Discrepancias de medidor</h6>
+                <table class="table table-sm table-bordered mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>Lote</th>
+                            <th>Medidor (CSV)</th>
+                            <th>Medidor (BD)</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.medidor_mismatch.forEach(function(m) {
+            mismatchHtml += `
+                <tr>
+                    <td>${m.row}</td>
+                    <td><strong>${m.lote}</strong></td>
+                    <td>${m.medidor_csv || 'N/A'}</td>
+                    <td>${m.medidor_bd || 'N/A'}</td>
+                    <td><span class="badge bg-warning">Se usará el de BD</span></td>
+                </tr>
+            `;
+        });
+        
+        mismatchHtml += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        // Insertar después de la equivalencia
+        document.querySelector('.alert-info').insertAdjacentHTML('afterend', mismatchHtml);
+    }
+
+    // ============================================
+    // 7. DATOS VÁLIDOS A IMPORTAR
+    // ============================================
+    if (data.valid_data && data.valid_data.length > 0) {
+        validDataContainer.style.display = 'block';
+        importData = data.valid_data;
+        
+        previewBody.innerHTML = data.valid_data.map(function(item, index) {
+            // Determinar estado
+            let estado = 'OK';
+            let estadoClass = 'table-success';
+            let badgeClass = 'bg-success';
+            
+            if (item.es_primera) {
+                estado = 'Primera Medición';
+                estadoClass = 'table-info';
+                badgeClass = 'bg-info';
+            } else if (item.consumo < 0) {
+                estado = 'Consumo Negativo';
+                estadoClass = 'table-danger';
+                badgeClass = 'bg-danger';
+            }
+            
+            // Obtener el número de fila (si existe)
+            const rowNum = item.row || (index + 1);
+            
+            return `
+                <tr class="${estadoClass}">
+                    <td>${rowNum}</td>
+                    <td><strong>${item.lote}</strong></td>
+                    <td>${item.medidor}</td>
+                    <td>${item.medidor_csv || 'N/A'}</td>
+                    <td><strong>${item.valormedido}</strong></td>
+                    <td>${item.consumo}</td>
+                    <td>${item.fecha}</td>
+                    <td>${item.foto || 'Sin foto'}</td>
+                    <td><span class="badge ${badgeClass}">${estado}</span></td>
+                </tr>
+            `;
+        }).join('');
+        
+        // Agregar contador de registros a importar
+        let footerHtml = `
+            <div class="mt-2 text-muted">
+                <i class="bi bi-info-circle"></i> 
+                Se importarán <strong>${data.valid_data.length}</strong> registros.
+                ${data.medidor_mismatch && data.medidor_mismatch.length > 0 ? 
+                    `<span class="text-warning ms-2">⚠️ ${data.medidor_mismatch.length} registros con medidor corregido.</span>` : ''}
+            </div>
+        `;
+        document.getElementById('validDataContainer').insertAdjacentHTML('afterend', footerHtml);
+        
+    } else {
+        validDataContainer.style.display = 'none';
+        // Mostrar mensaje si no hay datos válidos
+        let noDataHtml = `
+            <div class="alert alert-warning mt-3">
+                <i class="bi bi-exclamation-triangle"></i> 
+                No hay datos válidos para importar. Revisa los errores y corrige el archivo CSV.
+            </div>
+        `;
+        document.getElementById('validDataContainer').insertAdjacentHTML('afterend', noDataHtml);
+    }
+
+    // ============================================
+    // 8. MOSTRAR LA SECCIÓN DE RESULTADOS
+    // ============================================
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+    
+    // Scroll al inicio del paso 2
+    document.getElementById('step2').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
     function importDataToSystem() {
         if (importData.length === 0) {
