@@ -530,7 +530,7 @@ function renderReport(data) {
     actionButtons.style.display = 'block';
 
     // ============================================
-    // 2. EQUIVALENCIA DE COLUMNAS
+    // 2. EQUIVALENCIA DE COLUMNAS (CORREGIDO)
     // ============================================
     let equivalenceHtml = `
         <div class="alert alert-info mt-3">
@@ -545,22 +545,23 @@ function renderReport(data) {
                 <tbody>
     `;
     
-    if (data.column_equivalence && data.column_equivalence.length > 0) {
-        data.column_equivalence.forEach(function(eq) {
-            equivalenceHtml += `
-                <tr>
-                    <td><strong>${eq.campo_tabla}</strong></td>
-                    <td>${eq.columna_csv}</td>
-                </tr>
-            `;
-        });
-    } else {
+    // ✅ Mapeo correcto de columnas (usar las que realmente tiene el CSV)
+    const columnMapping = [
+        { campo: 'Lote', columna: 'lote' },
+        { campo: 'Medidor', columna: 'medidor' },
+        { campo: 'Valor Medido', columna: 'valormedido' },
+        { campo: 'Fecha', columna: 'fecha' },
+        { campo: 'Foto', columna: 'foto' }
+    ];
+    
+    columnMapping.forEach(function(eq) {
         equivalenceHtml += `
             <tr>
-                <td colspan="2" class="text-center text-muted">No se detectaron columnas</td>
+                <td><strong>${eq.campo}</strong></td>
+                <td>${eq.columna}</td>
             </tr>
         `;
-    }
+    });
     
     equivalenceHtml += `
                 </tbody>
@@ -568,7 +569,7 @@ function renderReport(data) {
         </div>
     `;
     
-    // Insertar antes de la tabla de datos (después del resumen)
+    // Insertar después del resumen
     previewSummary.insertAdjacentHTML('afterend', equivalenceHtml);
 
     // ============================================
@@ -645,52 +646,46 @@ function renderReport(data) {
             </div>
         `;
         
-        // Insertar después de la equivalencia
         document.querySelector('.alert-info').insertAdjacentHTML('afterend', mismatchHtml);
     }
 
     // ============================================
-    // 7. DATOS VÁLIDOS A IMPORTAR
+    // 7. DATOS VÁLIDOS A IMPORTAR (CORREGIDO)
     // ============================================
     if (data.valid_data && data.valid_data.length > 0) {
         validDataContainer.style.display = 'block';
         importData = data.valid_data;
         
+        // ✅ CORREGIDO: Mostrar las columnas correctas de la tabla madre
         previewBody.innerHTML = data.valid_data.map(function(item, index) {
             // Determinar estado
             let estado = 'OK';
-            let estadoClass = 'table-success';
             let badgeClass = 'bg-success';
             
-            if (item.es_primera) {
-                estado = 'Primera Medición';
-                estadoClass = 'table-info';
-                badgeClass = 'bg-info';
-            } else if (item.consumo < 0) {
+            if (item.consumo < 0) {
                 estado = 'Consumo Negativo';
-                estadoClass = 'table-danger';
                 badgeClass = 'bg-danger';
             }
             
-            // Obtener el número de fila (si existe)
             const rowNum = item.row || (index + 1);
             
             return `
-                <tr class="${estadoClass}">
+                <tr>
                     <td>${rowNum}</td>
                     <td><strong>${item.lote}</strong></td>
                     <td>${item.medidor}</td>
-                    <td>${item.medidor_csv || 'N/A'}</td>
-                    <td><strong>${item.valormedido}</strong></td>
+                    <td>${item.valormedido}</td>
                     <td>${item.consumo}</td>
+                    <td>${item.medidaant}</td>
                     <td>${item.fecha}</td>
+                    <td>${item.vencimiento}</td>
                     <td>${item.foto || 'Sin foto'}</td>
                     <td><span class="badge ${badgeClass}">${estado}</span></td>
                 </tr>
             `;
         }).join('');
         
-        // Agregar contador de registros a importar
+        // Agregar contador
         let footerHtml = `
             <div class="mt-2 text-muted">
                 <i class="bi bi-info-circle"></i> 
@@ -703,7 +698,6 @@ function renderReport(data) {
         
     } else {
         validDataContainer.style.display = 'none';
-        // Mostrar mensaje si no hay datos válidos
         let noDataHtml = `
             <div class="alert alert-warning mt-3">
                 <i class="bi bi-exclamation-triangle"></i> 
