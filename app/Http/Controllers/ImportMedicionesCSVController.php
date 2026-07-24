@@ -272,7 +272,8 @@ class ImportMedicionesCSVController extends Controller
             if ($lastMeasurement) {
                 $indice = $lastMeasurement->indice + 1;
                 $medidaAnt = $lastMeasurement->valormedido;
-                $tomaAnt = $lastMeasurement->fecha;
+                // ✅ Asegurar que tomaAnt sea un objeto Carbon o null
+                $tomaAnt = $lastMeasurement->fecha ? Carbon::parse($lastMeasurement->fecha) : null;
                 $consumoCalculado = $valormedidoFloat - $medidaAnt;
                 
                 if ($consumoCalculado < 0) {
@@ -288,7 +289,7 @@ class ImportMedicionesCSVController extends Controller
 
             $vencimiento = (clone $fecha)->addDays(30);
 
-            // ✅ Guardar datos válidos - TODOS LOS CAMPOS COMO STRINGS O NULL
+            // ✅ Guardar datos válidos - CONVERTIR TODO A STRINGS O NULL
             $report['valid_data'][] = [
                 'row' => $rowNumber,
                 'lote' => $lote,
