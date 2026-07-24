@@ -42,11 +42,11 @@
         }
 
         #resultadoMediciones {
-            height: 300px; /* Altura fija */
-            overflow-y: auto; /* Scroll vertical cuando el contenido sea mayor */
-            border: 1px solid #ccc; /* Opcional: para visualizar mejor los bordes */
-            padding: 10px; /* Opcional: agregar padding interno */
-            background-color: #f9f9f9; /* Opcional: color de fondo */
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
         }
     </style>
 @stop
@@ -63,9 +63,8 @@
                             {{ session('status') }}
                         </div>
                     @endif
-                    <div class="table-responsive"> <!-- Habilita el scroll horizontal -->
+                    <div class="table-responsive">
                         <div>
-
 
                         <div class="d-flex flex-wrap align-items-center mb-3">
                             <!-- Contenedor del campo 'Desde' -->
@@ -370,14 +369,19 @@
                 {
                     "data": "foto",
                     "render": function(data, type, row) {
-                        if (data === "Sin foto") {
-                            return `<a>Sin Foto</a>`;
+                        if (data === "Sin foto" || data === null || data === "") {
+                            return `<span class="text-muted">Sin foto</span>`;
                         } else {
-                            const tieneExtension = data.toLowerCase().endsWith('.png');
-                            const rutaImagen = tieneExtension
-                                ? `images/${data}`
-                                : `images/${data}.png`;
-                            return `<a class="fotoMedidor" target="_blank" href="{{ asset('${rutaImagen}') }}">Foto</a>`;
+                            // ✅ CORREGIDO: Ya no se añade "images/" dos veces
+                            // Si la ruta ya contiene "images/", no la duplicamos
+                            let rutaImagen = data;
+                            if (!rutaImagen.startsWith('images/') && !rutaImagen.startsWith('/images/')) {
+                                rutaImagen = 'images/' + rutaImagen;
+                            }
+                            // Eliminar barra inicial si existe
+                            rutaImagen = rutaImagen.replace(/^\/+/, '');
+                            
+                            return `<a class="fotoMedidor" target="_blank" href="{{ asset('') }}${rutaImagen}">Ver Foto</a>`;
                         }
                     }
                 },
