@@ -23,33 +23,160 @@ class ImportMedicionesCSVController extends Controller
     /**
      * Analiza el archivo CSV y genera un informe de previsualización
      */
-     /**
-     * Versión de prueba - SOLO PARA DEPURAR
-     */
     public function previewCSV(Request $request)
     {
-        // ✅ Devolver siempre una respuesta JSON simple para verificar que el método se ejecuta
-        return response()->json([
-            'success' => true,
-            'message' => 'El método previewCSV se ejecutó correctamente',
-            'received_file' => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : 'No file'
-        ]);
-    }
+        try {
+            Log::info('=== INICIO previewCSV ===');
+            
+            // Validar archivo
+            if (!$request->hasFile('file')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se ha subido ningún archivo.'
+                ], 400);
+            }
 
-    public function importCSV(Request $request)
-    {
-        return response()->json([
-            'success' => true,
-            'message' => 'El método importCSV se ejecutó correctamente'
-        ]);
-    }
+            $file = $request->file('file');
+            
+            if (!$file->isValid()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El archivo no es válido.'
+                ], 400);
+            }
 
-    public function downloadReport(Request $request)
-    {
-        return response()->json([
-            'success' => true,
-            'message' => 'El método downloadReport se ejecutó correctamente'
-        ]);
+            Log::info('Archivo recibido', [
+                'name' => $file->getClientOriginalName(),
+                'size' => $file->getSize()
+            ]);
+
+            // Leer el archivo CSV
+            $handle = fopen($file->getPathname(), 'r');
+            if (!$handle) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se pudo abrir el archivo.'
+                ], 400);
+            }
+
+            // Detectar delimitador
+            $firstLine = fgets($handle);
+            rewind($handle);
+            
+            if ($firstLine === false) {
+                fclose($handle);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El archivo está vacío.'
+                ], 400);
+            }
+            
+            $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
+            Log::info('Delimitador detectado', ['delimiter' => $delimiter]);
+
+            // Leer todas las filas
+            $lines = [];
+            while (($row = fgetcsv($handle, 0, $delimiter, '"')) !== false) {
+                $row = array_map(function($field) {
+                    return trim($field, " \t\n\r\0\x0B\"");
+                }, $row);
+                if (count(array_filter($row)) > 0) {
+                    $lines[] = $row;
+                }
+            }
+            fclose($handle);
+
+            Log::info('Filas leídas', ['total' => count($lines)]);
+
+            if (empty($lines) || count($lines) < 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El archivo CSV está vacío o no tiene datos.'
+                ], 400);
+            }
+
+            // Obtener encabezados
+            $headers = array_map(function($h) {
+                return strtolower(trim($h));
+            }, $lines[0]);
+
+            Log::info('Encabezados detectados', ['headers' => $headers]);
+
+            // Mapear columnas (el CSV tiene: id, lote, medidor, valormedido, foto, fecha, created_at, updated_at)
+            $columnMapping = [
+                'lote' => 'lote',
+                'medidor' => 'medidor',
+                'valormedido' => 'valormedido',
+                'fecha' => 'fecha',
+                'foto' => 'foto'
+            ];
+
+            // Verificar que las columnas requeridas existan
+            $requiredColumns = ['lote', 'medidor', 'valormedido', 'fecha'];
+            $missingColumns = [];
+            foreach ($requiredColumns as $col) {
+                if (!in_array($col, $headers)) {
+                    $missingColumns[] = $col;
+                }
+            }
+
+            if (!empty($missingColumns)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El archivo CSV no tiene las columnas requeridas: ' . implode(', ', $missingColumns)
+                ], 400);
+            }
+
+            // Procesar datos
+            $data = [];
+            for ($i = 1; $i < count($lines); $i++) {
+                if (empty($lines[$i]) || count($lines[$i]) < 2) continue;
+                
+                $row = [];
+                foreach ($headers as $index => $header) {
+                    $row[$header] = isset($lines[$i][$index]) ? trim($lines[$i][$index]) : '';
+                }
+                $data[] = $row;
+            }
+
+            if (empty($data)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontraron datos válidos en el archivo CSV.'
+                ], 400);
+            }
+
+            // Analizar los datos
+            $report = $this->analyzeData($data);
+
+            // ✅ Asegurar que la respuesta tenga la estructura esperada
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total' => $report['total'],
+                    'new_measurements' => $report['new_measurements'],
+                    'duplicates' => $report['duplicates'],
+                    'errors' => $report['errors'],
+                    'warnings' => $report['warnings'],
+                    'valid_data' => $report['valid_data'],
+                    'missing_users' => $report['missing_users'],
+                    'medidor_mismatch' => $report['medidor_mismatch'],
+                    'summary' => $report['summary']
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error en previewCSV', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al analizar el archivo: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -65,178 +192,160 @@ class ImportMedicionesCSVController extends Controller
             'warnings' => [],
             'valid_data' => [],
             'missing_users' => [],
-            'medidor_mismatch' => []
+            'medidor_mismatch' => [],
+            'summary' => []
         ];
 
-        try {
-            // Obtener todos los usuarios para validación
-            $allUsers = User::whereNotNull('lote')->get()->keyBy('lote');
+        // Obtener todos los usuarios para validación
+        $allUsers = User::whereNotNull('lote')->get()->keyBy('lote');
 
-            // Obtener todas las últimas mediciones por lote
-            $lastMeasurements = [];
-            $allLotes = Medicion::select('lote', DB::raw('MAX(fecha) as ultima_fecha'))
-                ->groupBy('lote')
-                ->get();
+        // Obtener todas las últimas mediciones por lote
+        $lastMeasurements = [];
+        $allLotes = Medicion::select('lote', DB::raw('MAX(fecha) as ultima_fecha'))
+            ->groupBy('lote')
+            ->get();
 
-            foreach ($allLotes as $loteInfo) {
-                $last = Medicion::where('lote', $loteInfo->lote)
-                    ->where('fecha', $loteInfo->ultima_fecha)
-                    ->first();
-                if ($last) {
-                    $lastMeasurements[$loteInfo->lote] = $last;
-                }
+        foreach ($allLotes as $loteInfo) {
+            $last = Medicion::where('lote', $loteInfo->lote)
+                ->where('fecha', $loteInfo->ultima_fecha)
+                ->first();
+            if ($last) {
+                $lastMeasurements[$loteInfo->lote] = $last;
+            }
+        }
+
+        foreach ($data as $index => $row) {
+            $rowNumber = $index + 2;
+
+            // Obtener valores del CSV
+            $lote = isset($row['lote']) ? trim($row['lote']) : '';
+            $medidorCSV = isset($row['medidor']) ? trim($row['medidor']) : '';
+            $valormedido = isset($row['valormedido']) ? trim($row['valormedido']) : '';
+            $fechaStr = isset($row['fecha']) ? trim($row['fecha']) : '';
+            $foto = isset($row['foto']) ? trim($row['foto']) : 'Sin foto';
+
+            // Limpiar lote (eliminar ceros a la izquierda)
+            $lote = $this->cleanLote($lote);
+
+            // Validaciones básicas
+            if (empty($lote)) {
+                $report['errors'][] = "Fila $rowNumber: Lote vacío";
+                continue;
             }
 
-            foreach ($data as $index => $row) {
-                $rowNumber = $index + 2;
+            if (empty($medidorCSV)) {
+                $report['errors'][] = "Fila $rowNumber: Medidor vacío";
+                continue;
+            }
 
-                // ✅ Obtener valores del CSV
-                $lote = isset($row['lote']) ? trim($row['lote']) : '';
-                $medidorCSV = isset($row['medidor']) ? trim($row['medidor']) : '';
-                $valormedido = isset($row['valormedido']) ? trim($row['valormedido']) : '';
-                $fechaStr = isset($row['fecha']) ? trim($row['fecha']) : '';
-                $foto = isset($row['foto']) ? trim($row['foto']) : 'Sin foto';
-                $inspector = isset($row['inspector']) ? trim($row['inspector']) : 'admin';
-                $pagado = isset($row['pagado']) ? trim($row['pagado']) : 'NO';
+            // Limpiar valormedido
+            if (is_string($valormedido)) {
+                $valormedido = str_replace(',', '.', $valormedido);
+            }
+            $valormedidoFloat = floatval($valormedido);
 
-                Log::debug("Fila $rowNumber: ", [
-                    'lote' => $lote,
-                    'medidor' => $medidorCSV,
-                    'valormedido' => $valormedido,
-                    'fecha' => $fechaStr
-                ]);
+            if ($valormedidoFloat < 0) {
+                $report['errors'][] = "Fila $rowNumber: Valor negativo ($valormedidoFloat)";
+                continue;
+            }
 
-                // ✅ Limpiar lote (eliminar ceros a la izquierda)
-                $lote = $this->cleanLote($lote);
+            if (empty($fechaStr)) {
+                $report['errors'][] = "Fila $rowNumber: Fecha vacía";
+                continue;
+            }
 
-                // Validaciones básicas
-                if (empty($lote)) {
-                    $report['errors'][] = "Fila $rowNumber: Lote vacío";
-                    continue;
-                }
-
-                if (empty($medidorCSV)) {
-                    $report['errors'][] = "Fila $rowNumber: Medidor vacío";
-                    continue;
-                }
-
-                // ✅ Limpiar valormedido (reemplazar coma por punto)
-                if (is_string($valormedido)) {
-                    $valormedido = str_replace(',', '.', $valormedido);
-                }
-                $valormedidoFloat = floatval($valormedido);
-
-                if ($valormedidoFloat < 0) {
-                    $report['errors'][] = "Fila $rowNumber: Valor negativo ($valormedidoFloat)";
-                    continue;
-                }
-
-                if (empty($fechaStr)) {
-                    $report['errors'][] = "Fila $rowNumber: Fecha vacía";
-                    continue;
-                }
-
-                // ✅ Buscar usuario por LOTE
-                $user = $allUsers->get($lote);
-                
-                if (!$user) {
-                    $report['missing_users'][] = [
-                        'row' => $rowNumber,
-                        'lote' => $lote,
-                        'medidor_csv' => $medidorCSV
-                    ];
-                    $report['errors'][] = "Fila $rowNumber: Lote $lote no encontrado en el sistema";
-                    continue;
-                }
-
-                // ✅ Verificar medidor
-                $medidorBD = $user->medidor;
-                if ($medidorBD != $medidorCSV) {
-                    $report['medidor_mismatch'][] = [
-                        'row' => $rowNumber,
-                        'lote' => $lote,
-                        'medidor_csv' => $medidorCSV,
-                        'medidor_bd' => $medidorBD
-                    ];
-                    $report['warnings'][] = "Fila $rowNumber: Medidor del CSV ($medidorCSV) no coincide con el registrado ($medidorBD). Se usará el de la BD.";
-                    $medidor = $medidorBD;
-                } else {
-                    $medidor = $medidorCSV;
-                }
-
-                // ✅ Parsear fecha
-                try {
-                    $fecha = Carbon::parse($fechaStr)->startOfDay();
-                } catch (\Exception $e) {
-                    $report['errors'][] = "Fila $rowNumber: Fecha inválida ($fechaStr)";
-                    continue;
-                }
-
-                // ✅ Verificar duplicado
-                $exists = Medicion::where('lote', $lote)
-                    ->where('fecha', $fecha)
-                    ->exists();
-
-                if ($exists) {
-                    $report['duplicates']++;
-                    $report['warnings'][] = "Fila $rowNumber: Ya existe medición para el lote $lote en fecha {$fecha->format('Y-m-d')}";
-                    continue;
-                }
-
-                // ✅ Obtener la última medición del lote
-                $lastMeasurement = $lastMeasurements[$lote] ?? null;
-
-                // ✅ Calcular todos los valores
-                if ($lastMeasurement) {
-                    $indice = $lastMeasurement->indice + 1;
-                    $medidaAnt = $lastMeasurement->valormedido;
-                    $tomaAnt = $lastMeasurement->fecha;
-                    
-                    $consumoCalculado = $valormedidoFloat - $medidaAnt;
-                    
-                    if ($consumoCalculado < 0) {
-                        $report['warnings'][] = "Fila $rowNumber: Consumo negativo: $consumoCalculado (Valor: $valormedidoFloat - Anterior: $medidaAnt)";
-                    }
-                } else {
-                    $indice = 1;
-                    $medidaAnt = 0;
-                    $tomaAnt = null;
-                    $consumoCalculado = 0;
-                    
-                    $report['warnings'][] = "Fila $rowNumber: No hay medición anterior para el lote $lote. Consumo = 0.";
-                }
-
-                // ✅ Calcular vencimiento
-                $vencimiento = (clone $fecha)->addDays(30);
-
-                // ✅ Guardar datos válidos
-                $report['valid_data'][] = [
+            // Buscar usuario por LOTE
+            $user = $allUsers->get($lote);
+            
+            if (!$user) {
+                $report['missing_users'][] = [
                     'row' => $rowNumber,
                     'lote' => $lote,
-                    'medidor' => $medidor,
-                    'medidor_csv' => $medidorCSV,
-                    'fecha' => $fecha->format('Y-m-d'),
-                    'vencimiento' => $vencimiento->format('Y-m-d'),
-                    'tomaant' => $tomaAnt ? $tomaAnt->format('Y-m-d') : null,
-                    'medidaant' => $medidaAnt,
-                    'valormedido' => $valormedidoFloat,
-                    'consumo' => $consumoCalculado,
-                    'indice' => $indice,
-                    'periodo' => 30,
-                    'inspector' => $inspector,
-                    'foto' => $foto,
-                    'pagado' => $pagado
+                    'medidor_csv' => $medidorCSV
                 ];
-
-                $report['new_measurements']++;
+                $report['errors'][] = "Fila $rowNumber: Lote $lote no encontrado en el sistema";
+                continue;
             }
 
-        } catch (\Exception $e) {
-            Log::error('Error en analyzeData', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            throw $e;
+            // Verificar medidor
+            $medidorBD = $user->medidor;
+            if ($medidorBD != $medidorCSV) {
+                $report['medidor_mismatch'][] = [
+                    'row' => $rowNumber,
+                    'lote' => $lote,
+                    'medidor_csv' => $medidorCSV,
+                    'medidor_bd' => $medidorBD
+                ];
+                $report['warnings'][] = "Fila $rowNumber: Medidor del CSV ($medidorCSV) no coincide con el registrado ($medidorBD). Se usará el de la BD.";
+                $medidor = $medidorBD;
+            } else {
+                $medidor = $medidorCSV;
+            }
+
+            // Parsear fecha
+            try {
+                $fecha = Carbon::parse($fechaStr)->startOfDay();
+            } catch (\Exception $e) {
+                $report['errors'][] = "Fila $rowNumber: Fecha inválida ($fechaStr)";
+                continue;
+            }
+
+            // Verificar duplicado
+            $exists = Medicion::where('lote', $lote)
+                ->where('fecha', $fecha)
+                ->exists();
+
+            if ($exists) {
+                $report['duplicates']++;
+                $report['warnings'][] = "Fila $rowNumber: Ya existe medición para el lote $lote en fecha {$fecha->format('Y-m-d')}";
+                continue;
+            }
+
+            // Obtener la última medición del lote
+            $lastMeasurement = $lastMeasurements[$lote] ?? null;
+
+            // Calcular todos los valores según la estructura de la tabla madre
+            if ($lastMeasurement) {
+                $indice = $lastMeasurement->indice + 1;
+                $medidaAnt = $lastMeasurement->valormedido;
+                $tomaAnt = $lastMeasurement->fecha;
+                $consumoCalculado = $valormedidoFloat - $medidaAnt;
+                
+                if ($consumoCalculado < 0) {
+                    $report['warnings'][] = "Fila $rowNumber: Consumo negativo: $consumoCalculado (Valor: $valormedidoFloat - Anterior: $medidaAnt)";
+                }
+            } else {
+                $indice = 1;
+                $medidaAnt = 0;
+                $tomaAnt = null;
+                $consumoCalculado = 0;
+                $report['warnings'][] = "Fila $rowNumber: No hay medición anterior para el lote $lote. Consumo = 0.";
+            }
+
+            // Calcular vencimiento (30 días después)
+            $vencimiento = (clone $fecha)->addDays(30);
+
+            // Guardar datos válidos con todas las columnas de la tabla madre
+            $report['valid_data'][] = [
+                'row' => $rowNumber,
+                'lote' => $lote,
+                'medidor' => $medidor,
+                'medidor_csv' => $medidorCSV,
+                'seccion' => null, // Columna de la tabla madre
+                'periodo' => 30,
+                'indice' => $indice,
+                'fecha' => $fecha->format('Y-m-d'),
+                'vencimiento' => $vencimiento->format('Y-m-d'),
+                'tomaant' => $tomaAnt ? $tomaAnt->format('Y-m-d') : null,
+                'medidaant' => $medidaAnt,
+                'valormedido' => $valormedidoFloat,
+                'consumo' => $consumoCalculado,
+                'inspector' => 'admin',
+                'foto' => $foto,
+                'pagado' => 'NO'
+            ];
+
+            $report['new_measurements']++;
         }
 
         // Calcular estadísticas
@@ -270,10 +379,209 @@ class ImportMedicionesCSVController extends Controller
         return $lote;
     }
 
-   
+    /**
+     * Importa los datos válidos a la base de datos
+     */
+    public function importCSV(Request $request)
+    {
+        try {
+            Log::info('=== INICIO importCSV ===');
+            
+            $request->validate([
+                'data' => 'required|array',
+                'data.*.lote' => 'required|string',
+                'data.*.medidor' => 'required|string',
+                'data.*.valormedido' => 'required|numeric',
+                'data.*.fecha' => 'required|date'
+            ]);
+
+            $importData = $request->data;
+            Log::info('Datos a importar', ['total' => count($importData)]);
+
+            $successCount = 0;
+            $errorCount = 0;
+            $errors = [];
+
+            DB::beginTransaction();
+
+            foreach ($importData as $index => $item) {
+                try {
+                    // Crear la medición con todas las columnas de la tabla madre
+                    Medicion::create([
+                        'lote' => $item['lote'],
+                        'seccion' => $item['seccion'] ?? null,
+                        'medidor' => $item['medidor'],
+                        'periodo' => $item['periodo'] ?? 30,
+                        'indice' => $item['indice'],
+                        'fecha' => $item['fecha'],
+                        'vencimiento' => $item['vencimiento'],
+                        'tomaant' => $item['tomaant'] ?? null,
+                        'medidaant' => $item['medidaant'] ?? 0,
+                        'valormedido' => $item['valormedido'],
+                        'consumo' => $item['consumo'],
+                        'inspector' => $item['inspector'] ?? 'admin',
+                        'foto' => $item['foto'] ?? 'Sin foto',
+                        'pagado' => $item['pagado'] ?? 'NO'
+                    ]);
+
+                    $successCount++;
+
+                } catch (\Exception $e) {
+                    Log::error('Error en item', [
+                        'index' => $index,
+                        'error' => $e->getMessage()
+                    ]);
+                    $errors[] = "Item $index (Lote: " . ($item['lote'] ?? 'desconocido') . "): " . $e->getMessage();
+                    $errorCount++;
+                }
+            }
+
+            DB::commit();
+
+            Log::info('Importación completada', [
+                'success_count' => $successCount,
+                'error_count' => $errorCount
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Importación completada: $successCount mediciones guardadas, $errorCount errores.",
+                'success_count' => $successCount,
+                'error_count' => $errorCount,
+                'errors' => $errors
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error en importCSV', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 
     /**
      * Descarga el informe de la importación
      */
-    
+    public function downloadReport(Request $request)
+    {
+        try {
+            $reportData = json_decode($request->input('report_data'), true);
+            
+            if (!$reportData) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No hay datos de informe para descargar.'
+                ], 400);
+            }
+
+            $filename = "informe_importacion_csv_" . date('Y-m-d_H-i-s') . '.csv';
+            
+            $handle = fopen('php://temp', 'r+');
+            
+            fputcsv($handle, ['=== INFORME DE IMPORTACIÓN CSV ===']);
+            fputcsv($handle, ['']);
+            
+            // Todas las columnas de la tabla madre
+            fputcsv($handle, [
+                'Fila',
+                'Lote',
+                'Medidor (BD)',
+                'Medidor (CSV)',
+                'Seccion',
+                'Periodo',
+                'Indice',
+                'Fecha',
+                'Vencimiento',
+                'Toma Ant.',
+                'Medida Ant.',
+                'Valor Medido',
+                'Consumo',
+                'Inspector',
+                'Foto',
+                'Pagado',
+                'Estado'
+            ]);
+
+            foreach ($reportData['valid_data'] as $item) {
+                $estado = 'OK';
+                if ($item['consumo'] < 0) {
+                    $estado = 'Consumo Negativo';
+                }
+                
+                fputcsv($handle, [
+                    $item['row'],
+                    $item['lote'],
+                    $item['medidor'],
+                    $item['medidor_csv'],
+                    $item['seccion'] ?? 'NULL',
+                    $item['periodo'],
+                    $item['indice'],
+                    $item['fecha'],
+                    $item['vencimiento'],
+                    $item['tomaant'] ?? 'NULL',
+                    $item['medidaant'],
+                    $item['valormedido'],
+                    $item['consumo'],
+                    $item['inspector'],
+                    $item['foto'],
+                    $item['pagado'],
+                    $estado
+                ]);
+            }
+
+            if (!empty($reportData['errors'])) {
+                fputcsv($handle, ['']);
+                fputcsv($handle, ['=== ERRORES ===']);
+                foreach ($reportData['errors'] as $error) {
+                    fputcsv($handle, [$error]);
+                }
+            }
+
+            if (!empty($reportData['warnings'])) {
+                fputcsv($handle, ['']);
+                fputcsv($handle, ['=== ADVERTENCIAS ===']);
+                foreach ($reportData['warnings'] as $warning) {
+                    fputcsv($handle, [$warning]);
+                }
+            }
+
+            fputcsv($handle, ['']);
+            fputcsv($handle, ['=== RESUMEN ===']);
+            fputcsv($handle, ['Total de registros:', $reportData['summary']['total_rows']]);
+            fputcsv($handle, ['Registros válidos:', $reportData['summary']['valid_rows']]);
+            fputcsv($handle, ['Errores:', $reportData['summary']['errors_count']]);
+            fputcsv($handle, ['Advertencias:', $reportData['summary']['warnings_count']]);
+            fputcsv($handle, ['Duplicados:', $reportData['summary']['duplicates_count']]);
+            fputcsv($handle, ['Discrepancias de medidor:', $reportData['summary']['medidor_mismatch_count']]);
+            fputcsv($handle, ['Fecha de generación:', date('Y-m-d H:i:s')]);
+            fputcsv($handle, ['Usuario:', auth()->user()->name ?? 'admin']);
+
+            rewind($handle);
+            $csvContent = stream_get_contents($handle);
+            fclose($handle);
+
+            return response()->streamDownload(function () use ($csvContent) {
+                echo $csvContent;
+            }, $filename, [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\""
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error en downloadReport', [
+                'message' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al generar el informe: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
