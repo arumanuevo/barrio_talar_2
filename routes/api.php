@@ -74,4 +74,3 @@ Route::post('/import-mediciones-csv/import', [App\Http\Controllers\ImportMedicio
 Route::post('/import-mediciones-csv/download-report', [App\Http\Controllers\ImportMedicionesCSVController::class, 'downloadReport'])
     ->name('api.import.mediciones.csv.download-report');
 
-
