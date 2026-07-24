@@ -28,14 +28,7 @@ class ImportMedicionesCSVController extends Controller
         try {
             Log::info('=== INICIO previewCSV ===');
             
-            // ✅ Verificar que el usuario esté autenticado
-            if (!auth()->check()) {
-                Log::error('Usuario no autenticado');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Usuario no autenticado'
-                ], 401);
-            }
+         
 
             $request->validate([
                 'file' => 'required|file|mimes:csv,txt'
