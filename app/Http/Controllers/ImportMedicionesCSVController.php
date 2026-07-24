@@ -68,16 +68,28 @@ class ImportMedicionesCSVController extends Controller
                 ], 400);
             }
 
-            // Obtener encabezados
+            // Obtener encabezados (ya deben coincidir con la tabla madre)
             $headers = array_map(function($h) {
                 return strtolower(trim($h));
             }, $lines[0]);
 
             Log::info('Encabezados detectados', ['headers' => $headers]);
 
-            // Mapear columnas del CSV a los campos esperados
-            $columnMapping = $this->mapColumns($headers);
-            Log::info('Mapeo de columnas', ['mapping' => $columnMapping]);
+            // ✅ Verificar que las columnas requeridas existan
+            $requiredColumns = ['lote', 'medidor', 'consumo', 'fecha'];
+            $missingColumns = [];
+            foreach ($requiredColumns as $col) {
+                if (!in_array($col, $headers)) {
+                    $missingColumns[] = $col;
+                }
+            }
+
+            if (!empty($missingColumns)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El archivo CSV no tiene las columnas requeridas: ' . implode(', ', $missingColumns)
+                ], 400);
+            }
 
             // Procesar datos
             $data = [];
@@ -101,7 +113,7 @@ class ImportMedicionesCSVController extends Controller
             }
 
             // Analizar los datos
-            $report = $this->analyzeData($data, $columnMapping);
+            $report = $this->analyzeData($data);
 
             Log::info('Reporte generado', [
                 'total' => $report['total'],
@@ -127,49 +139,9 @@ class ImportMedicionesCSVController extends Controller
     }
 
     /**
-     * Mapea las columnas del CSV a los campos esperados
-     */
-    private function mapColumns($headers)
-    {
-        $mapping = [
-            'lote' => null,
-            'medidor' => null,
-            'consumo' => null,
-            'fecha' => null,
-            'foto' => null,
-            'id' => null
-        ];
-
-        // Palabras clave para cada campo
-        $keywords = [
-            'lote' => ['lote', 'lotes', 'numero', 'nro'],
-            'medidor' => ['medidor', 'medidores', 'codigo', 'cod'],
-            'consumo' => ['consumo', 'valor', 'valormedido', 'medicion', 'medida'],
-            'fecha' => ['fecha_medicion', 'fecha', 'fechamedicion', 'fechamedicion', 'date'],
-            'foto' => ['foto', 'fotos', 'imagen', 'image', 'path', 'url'],
-            'id' => ['id', 'numero', 'nro']
-        ];
-
-        foreach ($headers as $header) {
-            $headerLower = strtolower($header);
-            
-            foreach ($keywords as $field => $words) {
-                foreach ($words as $word) {
-                    if (strpos($headerLower, $word) !== false) {
-                        $mapping[$field] = $header;
-                        break 2;
-                    }
-                }
-            }
-        }
-
-        return $mapping;
-    }
-
-    /**
      * Analiza los datos y genera un informe completo
      */
-    private function analyzeData($data, $columnMapping)
+    private function analyzeData($data)
     {
         $report = [
             'total' => count($data),
@@ -179,25 +151,25 @@ class ImportMedicionesCSVController extends Controller
             'warnings' => [],
             'valid_data' => [],
             'missing_users' => [],
-            'medidor_mismatch' => [],
-            'column_mapping' => $columnMapping,
-            'column_equivalence' => $this->getColumnEquivalence($columnMapping)
+            'medidor_mismatch' => []
         ];
 
-        // Obtener todos los lotes y medidores de la tabla madre
+        // Obtener todos los usuarios para validación
         $allUsers = User::whereNotNull('lote')->get()->keyBy('lote');
 
         foreach ($data as $index => $row) {
-            $rowNumber = $index + 2; // +2 por encabezado y offset
+            $rowNumber = $index + 2;
 
-            // Obtener valores usando el mapeo
-            $lote = $this->getValueFromRow($row, $columnMapping['lote']);
-            $medidorCSV = $this->getValueFromRow($row, $columnMapping['medidor']);
-            $consumo = $this->getValueFromRow($row, $columnMapping['consumo']);
-            $fechaMedicion = $this->getValueFromRow($row, $columnMapping['fecha']);
-            $foto = $this->getValueFromRow($row, $columnMapping['foto']);
+            // Obtener valores del CSV
+            $lote = isset($row['lote']) ? trim($row['lote']) : '';
+            $medidorCSV = isset($row['medidor']) ? trim($row['medidor']) : '';
+            $consumo = isset($row['consumo']) ? trim($row['consumo']) : '';
+            $fechaStr = isset($row['fecha']) ? trim($row['fecha']) : '';
+            $foto = isset($row['foto']) ? trim($row['foto']) : 'Sin foto';
+            $inspector = isset($row['inspector']) ? trim($row['inspector']) : 'admin';
+            $pagado = isset($row['pagado']) ? trim($row['pagado']) : 'NO';
 
-            // Limpiar lote (eliminar ceros a la izquierda)
+            // ✅ Limpiar lote (eliminar ceros a la izquierda)
             $lote = $this->cleanLote($lote);
 
             // Validaciones básicas
@@ -206,8 +178,8 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            if (empty($consumo)) {
-                $report['errors'][] = "Fila $rowNumber: Valor de consumo vacío";
+            if (empty($medidorCSV)) {
+                $report['errors'][] = "Fila $rowNumber: Medidor vacío";
                 continue;
             }
 
@@ -215,19 +187,19 @@ class ImportMedicionesCSVController extends Controller
             if (is_string($consumo)) {
                 $consumo = str_replace(',', '.', $consumo);
             }
-            $consumoFloat = floatval($consumo);
+            $valormedido = floatval($consumo);
 
-            if ($consumoFloat < 0) {
-                $report['errors'][] = "Fila $rowNumber: Consumo negativo ($consumoFloat)";
+            if ($valormedido < 0) {
+                $report['errors'][] = "Fila $rowNumber: Valor negativo ($valormedido)";
                 continue;
             }
 
-            if (empty($fechaMedicion)) {
-                $report['errors'][] = "Fila $rowNumber: Fecha de medición vacía";
+            if (empty($fechaStr)) {
+                $report['errors'][] = "Fila $rowNumber: Fecha vacía";
                 continue;
             }
 
-            // Buscar usuario por LOTE (ignorando medidor del CSV)
+            // ✅ Buscar usuario por LOTE
             $user = $allUsers->get($lote);
             
             if (!$user) {
@@ -240,71 +212,92 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // ✅ Verificar si el medidor del CSV coincide con el de la BD
+            // ✅ Verificar medidor
             $medidorBD = $user->medidor;
-            if ($medidorCSV && $medidorBD != $medidorCSV) {
+            if ($medidorBD != $medidorCSV) {
                 $report['medidor_mismatch'][] = [
                     'row' => $rowNumber,
                     'lote' => $lote,
                     'medidor_csv' => $medidorCSV,
                     'medidor_bd' => $medidorBD
                 ];
-                // ✅ No es un error crítico, solo una advertencia
-                $report['warnings'][] = "Fila $rowNumber: Medidor del CSV ($medidorCSV) no coincide con el registrado ($medidorBD) para el lote $lote. Se usará el de la BD.";
+                // ✅ Usar el medidor de la BD (el correcto)
+                $medidor = $medidorBD;
+                $report['warnings'][] = "Fila $rowNumber: Medidor del CSV ($medidorCSV) no coincide con el registrado ($medidorBD). Se usará el de la BD.";
+            } else {
+                $medidor = $medidorCSV;
             }
 
-            // Verificar fecha
+            // ✅ Parsear fecha
             try {
-                $fecha = Carbon::parse($fechaMedicion)->startOfDay();
+                $fecha = Carbon::parse($fechaStr)->startOfDay();
             } catch (\Exception $e) {
-                $report['errors'][] = "Fila $rowNumber: Fecha inválida ($fechaMedicion)";
+                $report['errors'][] = "Fila $rowNumber: Fecha inválida ($fechaStr)";
                 continue;
             }
 
-            // Obtener la última medición del lote desde la tabla madre
-            $lastMeasurement = Medicion::where('lote', $lote)
-                ->orderBy('fecha', 'desc')
-                ->first();
-
-            // Verificar duplicado exacto (misma fecha)
+            // ✅ Verificar duplicado (misma fecha y lote)
             $exists = Medicion::where('lote', $lote)
                 ->where('fecha', $fecha)
                 ->exists();
 
             if ($exists) {
                 $report['duplicates']++;
-                $report['warnings'][] = "Fila $rowNumber: Ya existe medición para el lote $lote en fecha $fechaMedicion";
+                $report['warnings'][] = "Fila $rowNumber: Ya existe medición para el lote $lote en fecha {$fecha->format('Y-m-d')}";
                 continue;
             }
 
-            // ✅ El consumo en el CSV es el valor medido actual
-            $valormedido = $consumoFloat;
-            $consumoCalculado = 0;
+            // ✅ Obtener la última medición del lote (tabla madre)
+            $lastMeasurement = Medicion::where('lote', $lote)
+                ->orderBy('fecha', 'desc')
+                ->first();
 
+            // ✅ Calcular valores
             if ($lastMeasurement) {
-                $lastValor = $lastMeasurement->valormedido;
-                $consumoCalculado = $valormedido - $lastValor;
+                // Existen mediciones previas
+                $indice = $lastMeasurement->indice + 1;
+                $medidaAnt = $lastMeasurement->valormedido;
+                $tomaAnt = $lastMeasurement->fecha;
                 
-                // Si el consumo calculado es negativo, es una advertencia
+                // ✅ El consumo es la diferencia con la medición anterior
+                $consumoCalculado = $valormedido - $medidaAnt;
+                
                 if ($consumoCalculado < 0) {
-                    $report['warnings'][] = "Fila $rowNumber: El valor medido ($valormedido) es menor que el último registrado ($lastValor) para el lote $lote. Consumo negativo: $consumoCalculado";
+                    $report['warnings'][] = "Fila $rowNumber: El valor medido ($valormedido) es menor que el último registrado ($medidaAnt). Consumo negativo: $consumoCalculado";
+                    // No bloqueamos la importación, solo advertimos
                 }
             } else {
-                // Primera medición del lote
-                $consumoCalculado = 0;
+                // ✅ Primera medición del lote
+                $indice = 1;
+                $medidaAnt = 0;
+                $tomaAnt = null;
+                $consumoCalculado = 0; // Primera medición siempre tiene consumo 0
+                
+                $report['warnings'][] = "Fila $rowNumber: Primera medición del lote $lote. Consumo = 0";
             }
 
-            // Guardar datos válidos
+            // ✅ Calcular vencimiento (30 días después de la fecha)
+            $vencimiento = (clone $fecha)->addDays(30);
+
+            // ✅ Guardar datos válidos
             $report['valid_data'][] = [
+                'row' => $rowNumber,
                 'lote' => $lote,
-                'medidor' => $medidorBD, // ✅ Usar el medidor de la BD (el correcto)
-                'valormedido' => $valormedido, // ✅ El valor medido (consumo del CSV)
-                'consumo' => $consumoCalculado, // ✅ La diferencia con la medición anterior
+                'medidor' => $medidor,
+                'medidor_csv' => $medidorCSV,
                 'fecha' => $fecha->format('Y-m-d'),
-                'foto' => $foto ?: 'Sin foto',
-                'last_measurement' => $lastMeasurement,
+                'vencimiento' => $vencimiento->format('Y-m-d'),
+                'tomaant' => $tomaAnt ? $tomaAnt->format('Y-m-d') : null,
+                'medidaant' => $medidaAnt,
+                'valormedido' => $valormedido,
+                'consumo' => $consumoCalculado,
+                'indice' => $indice,
+                'periodo' => 30,
+                'inspector' => $inspector,
+                'foto' => $foto,
+                'pagado' => $pagado,
                 'es_primera' => $lastMeasurement ? false : true,
-                'medidor_csv' => $medidorCSV // Para mostrar en el informe
+                'last_measurement' => $lastMeasurement
             ];
 
             $report['new_measurements']++;
@@ -321,43 +314,6 @@ class ImportMedicionesCSVController extends Controller
         ];
 
         return $report;
-    }
-
-    /**
-     * Obtener la equivalencia de columnas para mostrar en el informe
-     */
-    private function getColumnEquivalence($columnMapping)
-    {
-        $equivalence = [];
-        
-        $fieldNames = [
-            'lote' => 'Lote',
-            'medidor' => 'Medidor',
-            'consumo' => 'Valor Medido (CSV)',
-            'fecha' => 'Fecha',
-            'foto' => 'Foto'
-        ];
-
-        foreach ($fieldNames as $field => $label) {
-            $csvColumn = $columnMapping[$field];
-            $equivalence[] = [
-                'campo_tabla' => $label,
-                'columna_csv' => $csvColumn ?: 'No detectada'
-            ];
-        }
-
-        return $equivalence;
-    }
-
-    /**
-     * Obtener valor de una fila usando el nombre de columna
-     */
-    private function getValueFromRow($row, $columnName)
-    {
-        if (!$columnName) {
-            return null;
-        }
-        return isset($row[$columnName]) ? $row[$columnName] : null;
     }
 
     /**
@@ -392,6 +348,10 @@ class ImportMedicionesCSVController extends Controller
                 'data.*.medidor' => 'required|string',
                 'data.*.valormedido' => 'required|numeric',
                 'data.*.fecha' => 'required|date',
+                'data.*.consumo' => 'required|numeric',
+                'data.*.indice' => 'required|integer',
+                'data.*.periodo' => 'required|integer',
+                'data.*.vencimiento' => 'required|date'
             ]);
 
             $importData = $request->data;
@@ -405,77 +365,21 @@ class ImportMedicionesCSVController extends Controller
 
             foreach ($importData as $index => $item) {
                 try {
-                    $lote = trim($item['lote']);
-                    $medidor = trim($item['medidor']);
-                    $valormedido = floatval($item['valormedido']);
-                    $consumo = isset($item['consumo']) ? floatval($item['consumo']) : 0;
-                    $fecha = Carbon::parse($item['fecha'])->startOfDay();
-                    $foto = isset($item['foto']) ? trim($item['foto']) : 'Sin foto';
-
-                    Log::debug("Importando lote $lote - medidor $medidor - valor $valormedido - fecha $fecha");
-
-                    // Verificar que el lote exista
-                    $user = User::where('lote', $lote)->first();
-                    if (!$user) {
-                        $errors[] = "Lote $lote: No encontrado en el sistema.";
-                        $errorCount++;
-                        continue;
-                    }
-
-                    // Verificar duplicado
-                    $exists = Medicion::where('lote', $lote)
-                        ->where('fecha', $fecha)
-                        ->exists();
-
-                    if ($exists) {
-                        $errors[] = "Lote $lote: Ya existe medición para {$fecha->format('Y-m-d')}. Se omite.";
-                        $errorCount++;
-                        continue;
-                    }
-
-                    // Obtener última medición
-                    $lastMeasurement = Medicion::where('lote', $lote)
-                        ->orderBy('fecha', 'desc')
-                        ->first();
-
-                    // Calcular índices y valores
-                    $indice = $lastMeasurement ? $lastMeasurement->indice + 1 : 1;
-                    $medidaAnt = $lastMeasurement ? $lastMeasurement->valormedido : 0;
-                    $tomaAnt = $lastMeasurement ? $lastMeasurement->fecha : null;
-
-                    // Calcular consumo (si no viene calculado)
-                    if ($consumo == 0 && $lastMeasurement) {
-                        $consumo = $valormedido - $lastMeasurement->valormedido;
-                    }
-
-                    // Si el consumo es negativo, forzar 0 (no permitir consumo negativo)
-                    if ($consumo < 0) {
-                        $consumo = 0;
-                        Log::warning("Consumo negativo forzado a 0", [
-                            'lote' => $lote,
-                            'valormedido' => $valormedido,
-                            'last_value' => $lastMeasurement ? $lastMeasurement->valormedido : 0
-                        ]);
-                    }
-
-                    // Calcular vencimiento
-                    $vencimiento = (clone $fecha)->addDays(30);
-
-                    // Crear la medición
+                    // Crear la medición directamente
                     Medicion::create([
-                        'lote' => $lote,
-                        'medidor' => $medidor,
-                        'periodo' => 30,
-                        'indice' => $indice,
-                        'fecha' => $fecha,
-                        'vencimiento' => $vencimiento,
-                        'tomaant' => $tomaAnt,
-                        'medidaant' => $medidaAnt,
-                        'valormedido' => $valormedido,
-                        'consumo' => $consumo,
-                        'inspector' => auth()->user()->name ?? 'admin',
-                        'foto' => $foto,
-                        'pagado' => 'NO'
+                        'lote' => $item['lote'],
+                        'medidor' => $item['medidor'],
+                        'periodo' => $item['periodo'],
+                        'indice' => $item['indice'],
+                        'fecha' => $item['fecha'],
+                        'vencimiento' => $item['vencimiento'],
+                        'tomaant' => $item['tomaant'],
+                        'medidaant' => $item['medidaant'],
+                        'valormedido' => $item['valormedido'],
+                        'consumo' => $item['consumo'],
+                        'inspector' => $item['inspector'] ?? auth()->user()->name ?? 'admin',
+                        'foto' => $item['foto'] ?? 'Sin foto',
+                        'pagado' => $item['pagado'] ?? 'NO'
                     ]);
 
                     $successCount++;
@@ -538,62 +442,60 @@ class ImportMedicionesCSVController extends Controller
             
             $handle = fopen('php://temp', 'r+');
             
-            // ============================================
-            // SECCIÓN 1: EQUIVALENCIA DE COLUMNAS
-            // ============================================
-            fputcsv($handle, ['=== EQUIVALENCIA DE COLUMNAS ===']);
-            fputcsv($handle, ['Campo en la Tabla Madre', 'Columna detectada en el CSV']);
-            
-            foreach ($reportData['column_equivalence'] as $eq) {
-                fputcsv($handle, [$eq['campo_tabla'], $eq['columna_csv']]);
-            }
-            
-            fputcsv($handle, ['']);
+            // Cabeceras de la tabla madre
+            fputcsv($handle, ['=== INFORME DE IMPORTACIÓN CSV ===']);
             fputcsv($handle, ['']);
             
-            // ============================================
-            // SECCIÓN 2: CABECERAS DE LA TABLA MADRE
-            // ============================================
-            fputcsv($handle, ['=== DATOS A IMPORTAR ===']);
+            // Cabeceras de columnas
             fputcsv($handle, [
                 'Fila',
                 'Lote',
                 'Medidor (BD)',
                 'Medidor (CSV)',
-                'Valor Medido',
-                'Consumo Calculado',
                 'Fecha',
+                'Vencimiento',
+                'Toma Ant.',
+                'Medida Ant.',
+                'Valor Medido',
+                'Consumo',
+                'Índice',
+                'Periodo',
+                'Inspector',
                 'Foto',
+                'Pagado',
                 'Estado'
             ]);
 
-            // ============================================
-            // SECCIÓN 3: DATOS VÁLIDOS
-            // ============================================
+            // Datos válidos
             foreach ($reportData['valid_data'] as $item) {
                 $estado = 'OK';
-                if (isset($item['es_primera']) && $item['es_primera']) {
+                if ($item['es_primera']) {
                     $estado = 'Primera Medición';
-                } elseif (isset($item['consumo']) && $item['consumo'] < 0) {
+                } elseif ($item['consumo'] < 0) {
                     $estado = 'Consumo Negativo';
                 }
                 
                 fputcsv($handle, [
-                    $item['row'] ?? 'N/A',
+                    $item['row'],
                     $item['lote'],
                     $item['medidor'],
-                    $item['medidor_csv'] ?? 'N/A',
+                    $item['medidor_csv'],
+                    $item['fecha'],
+                    $item['vencimiento'],
+                    $item['tomaant'] ?? 'NULL',
+                    $item['medidaant'],
                     $item['valormedido'],
                     $item['consumo'],
-                    $item['fecha'],
+                    $item['indice'],
+                    $item['periodo'],
+                    $item['inspector'],
                     $item['foto'],
+                    $item['pagado'],
                     $estado
                 ]);
             }
 
-            // ============================================
-            // SECCIÓN 4: ERRORES Y ADVERTENCIAS
-            // ============================================
+            // Errores
             if (!empty($reportData['errors'])) {
                 fputcsv($handle, ['']);
                 fputcsv($handle, ['=== ERRORES ===']);
@@ -602,6 +504,7 @@ class ImportMedicionesCSVController extends Controller
                 }
             }
 
+            // Advertencias
             if (!empty($reportData['warnings'])) {
                 fputcsv($handle, ['']);
                 fputcsv($handle, ['=== ADVERTENCIAS ===']);
@@ -610,9 +513,7 @@ class ImportMedicionesCSVController extends Controller
                 }
             }
 
-            // ============================================
-            // SECCIÓN 5: RESUMEN
-            // ============================================
+            // Resumen
             fputcsv($handle, ['']);
             fputcsv($handle, ['=== RESUMEN ===']);
             fputcsv($handle, ['Total de registros:', $reportData['summary']['total_rows']]);
