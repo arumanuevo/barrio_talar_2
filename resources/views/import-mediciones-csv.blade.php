@@ -530,7 +530,7 @@ function renderReport(data) {
     actionButtons.style.display = 'block';
 
     // ============================================
-    // 2. EQUIVALENCIA DE COLUMNAS (CORREGIDO)
+    // 2. EQUIVALENCIA DE COLUMNAS
     // ============================================
     let equivalenceHtml = `
         <div class="alert alert-info mt-3">
@@ -543,33 +543,16 @@ function renderReport(data) {
                     </tr>
                 </thead>
                 <tbody>
-    `;
-    
-    // ✅ Mapeo correcto de columnas (usar las que realmente tiene el CSV)
-    const columnMapping = [
-        { campo: 'Lote', columna: 'lote' },
-        { campo: 'Medidor', columna: 'medidor' },
-        { campo: 'Valor Medido', columna: 'valormedido' },
-        { campo: 'Fecha', columna: 'fecha' },
-        { campo: 'Foto', columna: 'foto' }
-    ];
-    
-    columnMapping.forEach(function(eq) {
-        equivalenceHtml += `
-            <tr>
-                <td><strong>${eq.campo}</strong></td>
-                <td>${eq.columna}</td>
-            </tr>
-        `;
-    });
-    
-    equivalenceHtml += `
+                    <tr><td><strong>Lote</strong></td><td>lote</td></tr>
+                    <tr><td><strong>Medidor</strong></td><td>medidor</td></tr>
+                    <tr><td><strong>Valor Medido</strong></td><td>valormedido</td></tr>
+                    <tr><td><strong>Fecha</strong></td><td>fecha</td></tr>
+                    <tr><td><strong>Foto</strong></td><td>foto</td></tr>
                 </tbody>
             </table>
         </div>
     `;
     
-    // Insertar después del resumen
     previewSummary.insertAdjacentHTML('afterend', equivalenceHtml);
 
     // ============================================
@@ -650,36 +633,69 @@ function renderReport(data) {
     }
 
     // ============================================
-    // 7. DATOS VÁLIDOS A IMPORTAR (CORREGIDO)
+    // 7. DATOS VÁLIDOS - COLUMNAS EXACTAS DE LA TABLA MADRE
     // ============================================
     if (data.valid_data && data.valid_data.length > 0) {
         validDataContainer.style.display = 'block';
         importData = data.valid_data;
         
-        // ✅ CORREGIDO: Mostrar las columnas correctas de la tabla madre
+        // ✅ COLUMNAS EXACTAS DE LA TABLA MADRE (17 columnas)
+        const columns = [
+            '#',
+            'Lote',
+            'Seccion',
+            'Medidor',
+            'Periodo',
+            'Indice',
+            'Fecha',
+            'Vencimiento',
+            'Toma Ant.',
+            'Medida Ant.',
+            'Valor Medido',
+            'Consumo',
+            'Inspector',
+            'Foto',
+            'Pagado',
+            'Estado'
+        ];
+        
+        // Construir cabeceras
+        let headerHtml = '<tr>';
+        columns.forEach(function(col) {
+            headerHtml += `<th>${col}</th>`;
+        });
+        headerHtml += '</tr>';
+        document.getElementById('previewHead').innerHTML = headerHtml;
+        
+        // Construir filas
         previewBody.innerHTML = data.valid_data.map(function(item, index) {
+            const rowNum = item.row || (index + 1);
+            
             // Determinar estado
             let estado = 'OK';
             let badgeClass = 'bg-success';
-            
             if (item.consumo < 0) {
                 estado = 'Consumo Negativo';
                 badgeClass = 'bg-danger';
             }
             
-            const rowNum = item.row || (index + 1);
-            
             return `
                 <tr>
                     <td>${rowNum}</td>
                     <td><strong>${item.lote}</strong></td>
+                    <td>${item.seccion || 'NULL'}</td>
                     <td>${item.medidor}</td>
-                    <td>${item.valormedido}</td>
-                    <td>${item.consumo}</td>
-                    <td>${item.medidaant}</td>
+                    <td>${item.periodo}</td>
+                    <td>${item.indice}</td>
                     <td>${item.fecha}</td>
                     <td>${item.vencimiento}</td>
+                    <td>${item.tomaant || 'NULL'}</td>
+                    <td>${item.medidaant}</td>
+                    <td>${item.valormedido}</td>
+                    <td class="${item.consumo < 0 ? 'text-danger' : 'text-success'}">${item.consumo}</td>
+                    <td>${item.inspector}</td>
                     <td>${item.foto || 'Sin foto'}</td>
+                    <td>${item.pagado}</td>
                     <td><span class="badge ${badgeClass}">${estado}</span></td>
                 </tr>
             `;
@@ -712,8 +728,6 @@ function renderReport(data) {
     // ============================================
     document.getElementById('step1').style.display = 'none';
     document.getElementById('step2').style.display = 'block';
-    
-    // Scroll al inicio del paso 2
     document.getElementById('step2').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
