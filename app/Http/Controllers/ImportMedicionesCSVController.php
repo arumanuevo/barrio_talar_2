@@ -28,6 +28,15 @@ class ImportMedicionesCSVController extends Controller
         try {
             Log::info('=== INICIO previewCSV ===');
             
+            // ✅ Verificar que el usuario esté autenticado
+            if (!auth()->check()) {
+                Log::error('Usuario no autenticado');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Usuario no autenticado'
+                ], 401);
+            }
+
             $request->validate([
                 'file' => 'required|file|mimes:csv,txt'
             ]);
@@ -35,7 +44,8 @@ class ImportMedicionesCSVController extends Controller
             $file = $request->file('file');
             Log::info('Archivo recibido', [
                 'name' => $file->getClientOriginalName(),
-                'size' => $file->getSize()
+                'size' => $file->getSize(),
+                'user_id' => auth()->id()
             ]);
 
             // Leer el archivo CSV
@@ -44,7 +54,7 @@ class ImportMedicionesCSVController extends Controller
                 throw new \Exception('No se pudo abrir el archivo');
             }
 
-            // Detectar delimitador (punto y coma o coma)
+            // Detectar delimitador
             $firstLine = fgets($handle);
             rewind($handle);
             $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
@@ -75,7 +85,7 @@ class ImportMedicionesCSVController extends Controller
 
             Log::info('Encabezados detectados', ['headers' => $headers]);
 
-            // ✅ Mapear columnas del CSV a las de la tabla madre
+            // ✅ Mapear columnas
             $columnMapping = $this->mapColumns($headers);
             Log::info('Mapeo de columnas', ['mapping' => $columnMapping]);
 
@@ -158,7 +168,6 @@ class ImportMedicionesCSVController extends Controller
             'pagado' => 'pagado'
         ];
 
-        // Si no encuentra la columna exacta, buscar por similitud
         foreach ($headers as $header) {
             $headerLower = strtolower($header);
             
@@ -206,7 +215,7 @@ class ImportMedicionesCSVController extends Controller
         foreach ($data as $index => $row) {
             $rowNumber = $index + 2;
 
-            // ✅ Obtener valores del CSV
+            // Obtener valores del CSV
             $lote = isset($row['lote']) ? trim($row['lote']) : '';
             $medidorCSV = isset($row['medidor']) ? trim($row['medidor']) : '';
             $valormedido = isset($row['valormedido']) ? trim($row['valormedido']) : '';
@@ -215,14 +224,7 @@ class ImportMedicionesCSVController extends Controller
             $inspector = isset($row['inspector']) ? trim($row['inspector']) : 'admin';
             $pagado = isset($row['pagado']) ? trim($row['pagado']) : 'NO';
 
-            Log::debug("Fila $rowNumber: ", [
-                'lote' => $lote,
-                'medidor' => $medidorCSV,
-                'valormedido' => $valormedido,
-                'fecha' => $fechaStr
-            ]);
-
-            // ✅ Limpiar lote (eliminar ceros a la izquierda)
+            // Limpiar lote (eliminar ceros a la izquierda)
             $lote = $this->cleanLote($lote);
 
             // Validaciones básicas
@@ -236,7 +238,7 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // Limpiar valormedido (reemplazar coma por punto)
+            // Limpiar valormedido
             if (is_string($valormedido)) {
                 $valormedido = str_replace(',', '.', $valormedido);
             }
@@ -252,7 +254,7 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // ✅ Buscar usuario por LOTE
+            // Buscar usuario por LOTE
             $user = $allUsers->get($lote);
             
             if (!$user) {
@@ -265,7 +267,7 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // ✅ Verificar medidor
+            // Verificar medidor
             $medidorBD = $user->medidor;
             if ($medidorBD != $medidorCSV) {
                 $report['medidor_mismatch'][] = [
@@ -274,14 +276,13 @@ class ImportMedicionesCSVController extends Controller
                     'medidor_csv' => $medidorCSV,
                     'medidor_bd' => $medidorBD
                 ];
-                // ✅ Usar el medidor de la BD (el correcto)
                 $medidor = $medidorBD;
                 $report['warnings'][] = "Fila $rowNumber: Medidor del CSV ($medidorCSV) no coincide con el registrado ($medidorBD). Se usará el de la BD.";
             } else {
                 $medidor = $medidorCSV;
             }
 
-            // ✅ Parsear fecha
+            // Parsear fecha
             try {
                 $fecha = Carbon::parse($fechaStr)->startOfDay();
             } catch (\Exception $e) {
@@ -289,7 +290,7 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // ✅ Verificar duplicado (misma fecha y lote)
+            // Verificar duplicado
             $exists = Medicion::where('lote', $lote)
                 ->where('fecha', $fecha)
                 ->exists();
@@ -300,39 +301,33 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // ✅ Obtener la última medición del lote (tabla madre)
+            // Obtener la última medición
             $lastMeasurement = Medicion::where('lote', $lote)
                 ->orderBy('fecha', 'desc')
                 ->first();
 
-            // ✅ Calcular todos los valores
+            // Calcular valores
             if ($lastMeasurement) {
-                // Existen mediciones previas
                 $indice = $lastMeasurement->indice + 1;
                 $medidaAnt = $lastMeasurement->valormedido;
                 $tomaAnt = $lastMeasurement->fecha;
-                
-                // ✅ El consumo es la diferencia con la medición anterior
                 $consumoCalculado = $valormedidoFloat - $medidaAnt;
                 
                 if ($consumoCalculado < 0) {
                     $report['warnings'][] = "Fila $rowNumber: El valor medido ($valormedidoFloat) es menor que el último registrado ($medidaAnt). Consumo negativo: $consumoCalculado";
-                    // No bloqueamos la importación, solo advertimos
                 }
             } else {
-                // ✅ Primera medición del lote
                 $indice = 1;
                 $medidaAnt = 0;
                 $tomaAnt = null;
-                $consumoCalculado = 0; // Primera medición siempre tiene consumo 0
-                
+                $consumoCalculado = 0;
                 $report['warnings'][] = "Fila $rowNumber: Primera medición del lote $lote. Consumo = 0";
             }
 
-            // ✅ Calcular vencimiento (30 días después de la fecha)
+            // Calcular vencimiento
             $vencimiento = (clone $fecha)->addDays(30);
 
-            // ✅ Guardar datos válidos (con todas las columnas de la tabla madre)
+            // Guardar datos válidos
             $report['valid_data'][] = [
                 'row' => $rowNumber,
                 'lote' => $lote,
@@ -349,8 +344,7 @@ class ImportMedicionesCSVController extends Controller
                 'inspector' => $inspector,
                 'foto' => $foto,
                 'pagado' => $pagado,
-                'es_primera' => $lastMeasurement ? false : true,
-                'last_measurement' => $lastMeasurement
+                'es_primera' => $lastMeasurement ? false : true
             ];
 
             $report['new_measurements']++;
@@ -395,6 +389,13 @@ class ImportMedicionesCSVController extends Controller
         try {
             Log::info('=== INICIO importCSV ===');
             
+            if (!auth()->check()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Usuario no autenticado'
+                ], 401);
+            }
+
             $request->validate([
                 'data' => 'required|array',
                 'data.*.lote' => 'required|string',
@@ -414,15 +415,6 @@ class ImportMedicionesCSVController extends Controller
 
             foreach ($importData as $index => $item) {
                 try {
-                    Log::debug("Importando: ", [
-                        'lote' => $item['lote'],
-                        'medidor' => $item['medidor'],
-                        'valormedido' => $item['valormedido'],
-                        'consumo' => $item['consumo'],
-                        'fecha' => $item['fecha']
-                    ]);
-
-                    // Crear la medición directamente
                     Medicion::create([
                         'lote' => $item['lote'],
                         'medidor' => $item['medidor'],
@@ -452,11 +444,6 @@ class ImportMedicionesCSVController extends Controller
             }
 
             DB::commit();
-
-            Log::info('Importación completada', [
-                'success_count' => $successCount,
-                'error_count' => $errorCount
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -499,11 +486,9 @@ class ImportMedicionesCSVController extends Controller
             
             $handle = fopen('php://temp', 'r+');
             
-            // Cabeceras de la tabla madre
             fputcsv($handle, ['=== INFORME DE IMPORTACIÓN CSV ===']);
             fputcsv($handle, ['']);
             
-            // Cabeceras de columnas (todas las de la tabla madre)
             fputcsv($handle, [
                 'Fila',
                 'Lote',
@@ -523,7 +508,6 @@ class ImportMedicionesCSVController extends Controller
                 'Estado'
             ]);
 
-            // Datos válidos
             foreach ($reportData['valid_data'] as $item) {
                 $estado = 'OK';
                 if ($item['es_primera']) {
@@ -552,7 +536,6 @@ class ImportMedicionesCSVController extends Controller
                 ]);
             }
 
-            // Errores
             if (!empty($reportData['errors'])) {
                 fputcsv($handle, ['']);
                 fputcsv($handle, ['=== ERRORES ===']);
@@ -561,7 +544,6 @@ class ImportMedicionesCSVController extends Controller
                 }
             }
 
-            // Advertencias
             if (!empty($reportData['warnings'])) {
                 fputcsv($handle, ['']);
                 fputcsv($handle, ['=== ADVERTENCIAS ===']);
@@ -570,7 +552,6 @@ class ImportMedicionesCSVController extends Controller
                 }
             }
 
-            // Resumen
             fputcsv($handle, ['']);
             fputcsv($handle, ['=== RESUMEN ===']);
             fputcsv($handle, ['Total de registros:', $reportData['summary']['total_rows']]);
