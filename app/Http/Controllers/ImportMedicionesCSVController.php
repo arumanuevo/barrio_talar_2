@@ -12,23 +12,16 @@ use Illuminate\Support\Facades\Log;
 
 class ImportMedicionesCSVController extends Controller
 {
-    /**
-     * Muestra el formulario de importación de CSV
-     */
     public function showImportForm()
     {
         return view('import-mediciones-csv');
     }
 
-    /**
-     * Analiza el archivo CSV y genera un informe de previsualización
-     */
     public function previewCSV(Request $request)
     {
         try {
             Log::info('=== INICIO previewCSV ===');
             
-            // Validar archivo
             if (!$request->hasFile('file')) {
                 return response()->json([
                     'success' => false,
@@ -50,7 +43,6 @@ class ImportMedicionesCSVController extends Controller
                 'size' => $file->getSize()
             ]);
 
-            // Leer el archivo CSV
             $handle = fopen($file->getPathname(), 'r');
             if (!$handle) {
                 return response()->json([
@@ -59,7 +51,6 @@ class ImportMedicionesCSVController extends Controller
                 ], 400);
             }
 
-            // Detectar delimitador
             $firstLine = fgets($handle);
             rewind($handle);
             
@@ -74,7 +65,6 @@ class ImportMedicionesCSVController extends Controller
             $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
             Log::info('Delimitador detectado', ['delimiter' => $delimiter]);
 
-            // Leer todas las filas
             $lines = [];
             while (($row = fgetcsv($handle, 0, $delimiter, '"')) !== false) {
                 $row = array_map(function($field) {
@@ -95,23 +85,12 @@ class ImportMedicionesCSVController extends Controller
                 ], 400);
             }
 
-            // Obtener encabezados
             $headers = array_map(function($h) {
                 return strtolower(trim($h));
             }, $lines[0]);
 
             Log::info('Encabezados detectados', ['headers' => $headers]);
 
-            // Mapear columnas (el CSV tiene: id, lote, medidor, valormedido, foto, fecha, created_at, updated_at)
-            $columnMapping = [
-                'lote' => 'lote',
-                'medidor' => 'medidor',
-                'valormedido' => 'valormedido',
-                'fecha' => 'fecha',
-                'foto' => 'foto'
-            ];
-
-            // Verificar que las columnas requeridas existan
             $requiredColumns = ['lote', 'medidor', 'valormedido', 'fecha'];
             $missingColumns = [];
             foreach ($requiredColumns as $col) {
@@ -127,7 +106,6 @@ class ImportMedicionesCSVController extends Controller
                 ], 400);
             }
 
-            // Procesar datos
             $data = [];
             for ($i = 1; $i < count($lines); $i++) {
                 if (empty($lines[$i]) || count($lines[$i]) < 2) continue;
@@ -146,10 +124,8 @@ class ImportMedicionesCSVController extends Controller
                 ], 400);
             }
 
-            // Analizar los datos
             $report = $this->analyzeData($data);
 
-            // ✅ Asegurar que la respuesta tenga la estructura esperada
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -179,9 +155,6 @@ class ImportMedicionesCSVController extends Controller
         }
     }
 
-    /**
-     * Analiza los datos y genera un informe completo
-     */
     private function analyzeData($data)
     {
         $report = [
@@ -196,10 +169,9 @@ class ImportMedicionesCSVController extends Controller
             'summary' => []
         ];
 
-        // Obtener todos los usuarios para validación
         $allUsers = User::whereNotNull('lote')->get()->keyBy('lote');
 
-        // Obtener todas las últimas mediciones por lote
+        // Obtener últimas mediciones
         $lastMeasurements = [];
         $allLotes = Medicion::select('lote', DB::raw('MAX(fecha) as ultima_fecha'))
             ->groupBy('lote')
@@ -217,17 +189,14 @@ class ImportMedicionesCSVController extends Controller
         foreach ($data as $index => $row) {
             $rowNumber = $index + 2;
 
-            // Obtener valores del CSV
             $lote = isset($row['lote']) ? trim($row['lote']) : '';
             $medidorCSV = isset($row['medidor']) ? trim($row['medidor']) : '';
             $valormedido = isset($row['valormedido']) ? trim($row['valormedido']) : '';
             $fechaStr = isset($row['fecha']) ? trim($row['fecha']) : '';
             $foto = isset($row['foto']) ? trim($row['foto']) : 'Sin foto';
 
-            // Limpiar lote (eliminar ceros a la izquierda)
             $lote = $this->cleanLote($lote);
 
-            // Validaciones básicas
             if (empty($lote)) {
                 $report['errors'][] = "Fila $rowNumber: Lote vacío";
                 continue;
@@ -238,7 +207,6 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // Limpiar valormedido
             if (is_string($valormedido)) {
                 $valormedido = str_replace(',', '.', $valormedido);
             }
@@ -254,7 +222,6 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // Buscar usuario por LOTE
             $user = $allUsers->get($lote);
             
             if (!$user) {
@@ -267,7 +234,6 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // Verificar medidor
             $medidorBD = $user->medidor;
             if ($medidorBD != $medidorCSV) {
                 $report['medidor_mismatch'][] = [
@@ -282,7 +248,6 @@ class ImportMedicionesCSVController extends Controller
                 $medidor = $medidorCSV;
             }
 
-            // Parsear fecha
             try {
                 $fecha = Carbon::parse($fechaStr)->startOfDay();
             } catch (\Exception $e) {
@@ -290,7 +255,7 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // Verificar duplicado
+            // ✅ Verificar duplicado
             $exists = Medicion::where('lote', $lote)
                 ->where('fecha', $fecha)
                 ->exists();
@@ -301,10 +266,9 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // Obtener la última medición del lote
             $lastMeasurement = $lastMeasurements[$lote] ?? null;
 
-            // Calcular todos los valores según la estructura de la tabla madre
+            // ✅ Calcular valores
             if ($lastMeasurement) {
                 $indice = $lastMeasurement->indice + 1;
                 $medidaAnt = $lastMeasurement->valormedido;
@@ -312,7 +276,7 @@ class ImportMedicionesCSVController extends Controller
                 $consumoCalculado = $valormedidoFloat - $medidaAnt;
                 
                 if ($consumoCalculado < 0) {
-                    $report['warnings'][] = "Fila $rowNumber: Consumo negativo: $consumoCalculado (Valor: $valormedidoFloat - Anterior: $medidaAnt)";
+                    $report['warnings'][] = "Fila $rowNumber: Consumo negativo: $consumoCalculado";
                 }
             } else {
                 $indice = 1;
@@ -322,16 +286,15 @@ class ImportMedicionesCSVController extends Controller
                 $report['warnings'][] = "Fila $rowNumber: No hay medición anterior para el lote $lote. Consumo = 0.";
             }
 
-            // Calcular vencimiento (30 días después)
             $vencimiento = (clone $fecha)->addDays(30);
 
-            // Guardar datos válidos con todas las columnas de la tabla madre
+            // ✅ Guardar datos válidos - TODOS LOS CAMPOS COMO STRINGS O NULL
             $report['valid_data'][] = [
                 'row' => $rowNumber,
                 'lote' => $lote,
                 'medidor' => $medidor,
                 'medidor_csv' => $medidorCSV,
-                'seccion' => null, // Columna de la tabla madre
+                'seccion' => null,
                 'periodo' => 30,
                 'indice' => $indice,
                 'fecha' => $fecha->format('Y-m-d'),
@@ -348,7 +311,6 @@ class ImportMedicionesCSVController extends Controller
             $report['new_measurements']++;
         }
 
-        // Calcular estadísticas
         $report['summary'] = [
             'total_rows' => $report['total'],
             'valid_rows' => count($report['valid_data']),
@@ -361,9 +323,6 @@ class ImportMedicionesCSVController extends Controller
         return $report;
     }
 
-    /**
-     * Limpiar número de lote
-     */
     private function cleanLote($lote)
     {
         if (empty($lote)) {
@@ -379,9 +338,6 @@ class ImportMedicionesCSVController extends Controller
         return $lote;
     }
 
-    /**
-     * Importa los datos válidos a la base de datos
-     */
     public function importCSV(Request $request)
     {
         try {
@@ -406,7 +362,6 @@ class ImportMedicionesCSVController extends Controller
 
             foreach ($importData as $index => $item) {
                 try {
-                    // Crear la medición con todas las columnas de la tabla madre
                     Medicion::create([
                         'lote' => $item['lote'],
                         'seccion' => $item['seccion'] ?? null,
@@ -465,9 +420,6 @@ class ImportMedicionesCSVController extends Controller
         }
     }
 
-    /**
-     * Descarga el informe de la importación
-     */
     public function downloadReport(Request $request)
     {
         try {
@@ -487,25 +439,11 @@ class ImportMedicionesCSVController extends Controller
             fputcsv($handle, ['=== INFORME DE IMPORTACIÓN CSV ===']);
             fputcsv($handle, ['']);
             
-            // Todas las columnas de la tabla madre
             fputcsv($handle, [
-                'Fila',
-                'Lote',
-                'Medidor (BD)',
-                'Medidor (CSV)',
-                'Seccion',
-                'Periodo',
-                'Indice',
-                'Fecha',
-                'Vencimiento',
-                'Toma Ant.',
-                'Medida Ant.',
-                'Valor Medido',
-                'Consumo',
-                'Inspector',
-                'Foto',
-                'Pagado',
-                'Estado'
+                'Fila', 'Lote', 'Medidor (BD)', 'Medidor (CSV)', 'Seccion',
+                'Periodo', 'Indice', 'Fecha', 'Vencimiento',
+                'Toma Ant.', 'Medida Ant.', 'Valor Medido', 'Consumo',
+                'Inspector', 'Foto', 'Pagado', 'Estado'
             ]);
 
             foreach ($reportData['valid_data'] as $item) {
