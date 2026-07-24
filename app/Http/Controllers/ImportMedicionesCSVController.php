@@ -23,147 +23,33 @@ class ImportMedicionesCSVController extends Controller
     /**
      * Analiza el archivo CSV y genera un informe de previsualización
      */
+     /**
+     * Versión de prueba - SOLO PARA DEPURAR
+     */
     public function previewCSV(Request $request)
     {
-        try {
-            Log::info('=== INICIO previewCSV ===');
-            
-            $validator = validator($request->all(), [
-                'file' => 'required|file|mimes:csv,txt'
-            ]);
+        // ✅ Devolver siempre una respuesta JSON simple para verificar que el método se ejecuta
+        return response()->json([
+            'success' => true,
+            'message' => 'El método previewCSV se ejecutó correctamente',
+            'received_file' => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : 'No file'
+        ]);
+    }
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error de validación: ' . $validator->errors()->first()
-                ], 422);
-            }
+    public function importCSV(Request $request)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'El método importCSV se ejecutó correctamente'
+        ]);
+    }
 
-            $file = $request->file('file');
-            Log::info('Archivo recibido', [
-                'name' => $file->getClientOriginalName(),
-                'size' => $file->getSize()
-            ]);
-
-            // Leer el archivo CSV
-            $handle = fopen($file->getPathname(), 'r');
-            if (!$handle) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No se pudo abrir el archivo.'
-                ], 400);
-            }
-
-            // ✅ Detectar delimitador (punto y coma o coma)
-            $firstLine = fgets($handle);
-            rewind($handle);
-            
-            if ($firstLine === false) {
-                fclose($handle);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El archivo está vacío.'
-                ], 400);
-            }
-            
-            $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
-            Log::info('Delimitador detectado', ['delimiter' => $delimiter]);
-
-            // ✅ Leer todas las filas (ya maneja comillas automáticamente)
-            $lines = [];
-            while (($row = fgetcsv($handle, 0, $delimiter, '"')) !== false) {
-                // Limpiar cada campo (eliminar comillas y espacios)
-                $row = array_map(function($field) {
-                    return trim($field, " \t\n\r\0\x0B\"");
-                }, $row);
-                
-                // Solo agregar filas que tengan al menos un valor
-                if (count(array_filter($row)) > 0) {
-                    $lines[] = $row;
-                }
-            }
-            fclose($handle);
-
-            Log::info('Filas leídas', ['total' => count($lines)]);
-
-            if (empty($lines) || count($lines) < 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El archivo CSV está vacío o no tiene datos. Se encontraron ' . count($lines) . ' filas.'
-                ], 400);
-            }
-
-            // ✅ Obtener encabezados (normalizados a minúsculas)
-            $headers = array_map(function($h) {
-                return strtolower(trim($h));
-            }, $lines[0]);
-
-            Log::info('Encabezados detectados', ['headers' => $headers]);
-
-            // ✅ Verificar que las columnas requeridas existan
-            $requiredColumns = ['lote', 'medidor', 'valormedido', 'fecha'];
-            $missingColumns = [];
-            foreach ($requiredColumns as $col) {
-                if (!in_array($col, $headers)) {
-                    $missingColumns[] = $col;
-                }
-            }
-
-            if (!empty($missingColumns)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El archivo CSV no tiene las columnas requeridas: ' . implode(', ', $missingColumns) . 
-                                 '. Columnas detectadas: ' . implode(', ', $headers)
-                ], 400);
-            }
-
-            // ✅ Procesar datos
-            $data = [];
-            for ($i = 1; $i < count($lines); $i++) {
-                if (empty($lines[$i]) || count($lines[$i]) < 2) continue;
-                
-                $row = [];
-                foreach ($headers as $index => $header) {
-                    $row[$header] = isset($lines[$i][$index]) ? trim($lines[$i][$index]) : '';
-                }
-                $data[] = $row;
-            }
-
-            Log::info('Datos procesados', ['total_filas' => count($data)]);
-
-            if (empty($data)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No se encontraron datos válidos en el archivo CSV.'
-                ], 400);
-            }
-
-            // ✅ Analizar los datos
-            $report = $this->analyzeData($data);
-
-            Log::info('Reporte generado', [
-                'total' => $report['total'],
-                'valid_data' => count($report['valid_data'])
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'data' => $report
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error en previewCSV', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al analizar el archivo: ' . $e->getMessage()
-            ], 500);
-        }
+    public function downloadReport(Request $request)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'El método downloadReport se ejecutó correctamente'
+        ]);
     }
 
     /**
@@ -384,204 +270,10 @@ class ImportMedicionesCSVController extends Controller
         return $lote;
     }
 
-    /**
-     * Importa los datos válidos a la base de datos
-     */
-    public function importCSV(Request $request)
-    {
-        try {
-            Log::info('=== INICIO importCSV ===');
-            
-            $request->validate([
-                'data' => 'required|array',
-                'data.*.lote' => 'required|string',
-                'data.*.medidor' => 'required|string',
-                'data.*.valormedido' => 'required|numeric',
-                'data.*.fecha' => 'required|date'
-            ]);
-
-            $importData = $request->data;
-            Log::info('Datos a importar', ['total' => count($importData)]);
-
-            $successCount = 0;
-            $errorCount = 0;
-            $errors = [];
-
-            DB::beginTransaction();
-
-            foreach ($importData as $index => $item) {
-                try {
-                    Medicion::create([
-                        'lote' => $item['lote'],
-                        'medidor' => $item['medidor'],
-                        'periodo' => $item['periodo'] ?? 30,
-                        'indice' => $item['indice'],
-                        'fecha' => $item['fecha'],
-                        'vencimiento' => $item['vencimiento'],
-                        'tomaant' => $item['tomaant'] ?? null,
-                        'medidaant' => $item['medidaant'] ?? 0,
-                        'valormedido' => $item['valormedido'],
-                        'consumo' => $item['consumo'],
-                        'inspector' => $item['inspector'] ?? auth()->user()->name ?? 'admin',
-                        'foto' => $item['foto'] ?? 'Sin foto',
-                        'pagado' => $item['pagado'] ?? 'NO'
-                    ]);
-
-                    $successCount++;
-
-                } catch (\Exception $e) {
-                    Log::error('Error en item', [
-                        'index' => $index,
-                        'error' => $e->getMessage()
-                    ]);
-                    $errors[] = "Item $index (Lote: " . ($item['lote'] ?? 'desconocido') . "): " . $e->getMessage();
-                    $errorCount++;
-                }
-            }
-
-            DB::commit();
-
-            Log::info('Importación completada', [
-                'success_count' => $successCount,
-                'error_count' => $errorCount
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => "Importación completada: $successCount mediciones guardadas, $errorCount errores.",
-                'success_count' => $successCount,
-                'error_count' => $errorCount,
-                'errors' => $errors
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error en importCSV', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error: ' . $e->getMessage()
-            ], 500);
-        }
-    }
+   
 
     /**
      * Descarga el informe de la importación
      */
-    public function downloadReport(Request $request)
-    {
-        try {
-            $reportData = json_decode($request->input('report_data'), true);
-            
-            if (!$reportData) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No hay datos de informe para descargar.'
-                ], 400);
-            }
-
-            $filename = "informe_importacion_csv_" . date('Y-m-d_H-i-s') . '.csv';
-            
-            $handle = fopen('php://temp', 'r+');
-            
-            fputcsv($handle, ['=== INFORME DE IMPORTACIÓN CSV ===']);
-            fputcsv($handle, ['']);
-            
-            fputcsv($handle, [
-                'Fila',
-                'Lote',
-                'Medidor (BD)',
-                'Medidor (CSV)',
-                'Fecha',
-                'Vencimiento',
-                'Toma Ant.',
-                'Medida Ant.',
-                'Valor Medido',
-                'Consumo',
-                'Índice',
-                'Periodo',
-                'Inspector',
-                'Foto',
-                'Pagado',
-                'Estado'
-            ]);
-
-            foreach ($reportData['valid_data'] as $item) {
-                $estado = 'OK';
-                if ($item['consumo'] < 0) {
-                    $estado = 'Consumo Negativo';
-                }
-                
-                fputcsv($handle, [
-                    $item['row'],
-                    $item['lote'],
-                    $item['medidor'],
-                    $item['medidor_csv'],
-                    $item['fecha'],
-                    $item['vencimiento'],
-                    $item['tomaant'] ?? 'NULL',
-                    $item['medidaant'],
-                    $item['valormedido'],
-                    $item['consumo'],
-                    $item['indice'],
-                    $item['periodo'],
-                    $item['inspector'],
-                    $item['foto'],
-                    $item['pagado'],
-                    $estado
-                ]);
-            }
-
-            if (!empty($reportData['errors'])) {
-                fputcsv($handle, ['']);
-                fputcsv($handle, ['=== ERRORES ===']);
-                foreach ($reportData['errors'] as $error) {
-                    fputcsv($handle, [$error]);
-                }
-            }
-
-            if (!empty($reportData['warnings'])) {
-                fputcsv($handle, ['']);
-                fputcsv($handle, ['=== ADVERTENCIAS ===']);
-                foreach ($reportData['warnings'] as $warning) {
-                    fputcsv($handle, [$warning]);
-                }
-            }
-
-            fputcsv($handle, ['']);
-            fputcsv($handle, ['=== RESUMEN ===']);
-            fputcsv($handle, ['Total de registros:', $reportData['summary']['total_rows']]);
-            fputcsv($handle, ['Registros válidos:', $reportData['summary']['valid_rows']]);
-            fputcsv($handle, ['Errores:', $reportData['summary']['errors_count']]);
-            fputcsv($handle, ['Advertencias:', $reportData['summary']['warnings_count']]);
-            fputcsv($handle, ['Duplicados:', $reportData['summary']['duplicates_count']]);
-            fputcsv($handle, ['Discrepancias de medidor:', $reportData['summary']['medidor_mismatch_count']]);
-            fputcsv($handle, ['Fecha de generación:', date('Y-m-d H:i:s')]);
-            fputcsv($handle, ['Usuario:', auth()->user()->name ?? 'admin']);
-
-            rewind($handle);
-            $csvContent = stream_get_contents($handle);
-            fclose($handle);
-
-            return response()->streamDownload(function () use ($csvContent) {
-                echo $csvContent;
-            }, $filename, [
-                'Content-Type' => 'text/csv; charset=UTF-8',
-                'Content-Disposition' => "attachment; filename=\"{$filename}\""
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error en downloadReport', [
-                'message' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al generar el informe: ' . $e->getMessage()
-            ], 500);
-        }
-    }
+    
 }
