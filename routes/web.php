@@ -136,6 +136,13 @@ Route::post('/subir-foto-medicion', 'App\Http\Controllers\ImagenController@subir
 
 Route::get('/importar-mediciones', [App\Http\Controllers\ImportMedicionesController::class, 'showImportForm'])
     ->name('import.mediciones.form');
+
+
+// routes/web.php
+Route::get('/importar-mediciones-csv', [App\Http\Controllers\ImportMedicionesCSVController::class, 'showImportForm'])
+    ->name('import.mediciones.csv.form')
+    ->middleware('auth');
+
     
 
 

@@ -64,3 +64,14 @@ Route::post('/postGuardarFacturas', [App\Http\Controllers\ApiGeneral::class, 'po
 Route::get('/getMedidor', [App\Http\Controllers\ApiGeneral::class, 'getMedidor'])->name('getMedidor');
 
 
+// routes/api.php
+Route::post('/import-mediciones-csv/preview', [App\Http\Controllers\ImportMedicionesCSVController::class, 'previewCSV'])
+    ->name('api.import.mediciones.csv.preview');
+
+Route::post('/import-mediciones-csv/import', [App\Http\Controllers\ImportMedicionesCSVController::class, 'importCSV'])
+    ->name('api.import.mediciones.csv.import');
+
+Route::post('/import-mediciones-csv/download-report', [App\Http\Controllers\ImportMedicionesCSVController::class, 'downloadReport'])
+    ->name('api.import.mediciones.csv.download-report');
+
+
