@@ -424,40 +424,60 @@ document.addEventListener('DOMContentLoaded', function() {
         analyzeFile(file);
     }
 
-    function analyzeFile(file) {
-        previewLoading.classList.add('show');
-        previewProgressText.textContent = 'Analizando archivo...';
+// En la función analyzeFile, agregar más logs en el frontend
+function analyzeFile(file) {
+    console.log('=== INICIO analyzeFile ===');
+    console.log('Archivo:', file);
 
-        const formData = new FormData();
-        formData.append('file', file);
+    previewLoading.classList.add('show');
+    previewProgressText.textContent = 'Analizando archivo...';
 
-        fetch('/api/import-mediciones-csv/preview', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(response => {
-            previewLoading.classList.remove('show');
-            
-            if (response.success) {
-                reportData = response.data;
-                renderReport(response.data);
-                document.getElementById('step1').style.display = 'none';
-                document.getElementById('step2').style.display = 'block';
-                showAlert('Análisis completado. Revisa el informe.', 'info');
-            } else {
-                showAlert(response.message || 'Error al analizar el archivo', 'danger');
-            }
-        })
-        .catch(error => {
-            previewLoading.classList.remove('show');
-            showAlert('Error al analizar el archivo: ' + error.message, 'danger');
-            console.error(error);
-        });
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // ✅ Log de FormData
+    for (let [key, value] of formData.entries()) {
+        console.log(key, value);
     }
+
+    fetch('/api/import-mediciones-csv/preview', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        },
+        body: formData
+    })
+    .then(async response => {
+        console.log('Response status:', response.status);
+        const text = await response.text();
+        console.log('Response text:', text);
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error('Error parsing JSON:', e);
+            throw new Error('El servidor devolvió una respuesta inválida: ' + text.substring(0, 100));
+        }
+    })
+    .then(response => {
+        console.log('Response:', response);
+        previewLoading.classList.remove('show');
+        
+        if (response.success) {
+            reportData = response.data;
+            renderReport(response.data);
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = 'block';
+            showAlert('Análisis completado. Revisa el informe.', 'info');
+        } else {
+            showAlert(response.message || 'Error al analizar el archivo', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error en analyzeFile:', error);
+        previewLoading.classList.remove('show');
+        showAlert('Error al analizar el archivo: ' + error.message, 'danger');
+    });
+}
 
     function renderReport(data) {
         // Resumen

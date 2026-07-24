@@ -8,7 +8,7 @@ use App\Models\User;
 use App\Models\Medicion;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class ImportMedicionesCSVController extends Controller
 {
@@ -26,28 +26,69 @@ class ImportMedicionesCSVController extends Controller
     public function previewCSV(Request $request)
     {
         try {
+            Log::info('=== INICIO previewCSV ===');
+            
             $request->validate([
                 'file' => 'required|file|mimes:csv,txt'
             ]);
 
             $file = $request->file('file');
+            Log::info('Archivo recibido', [
+                'name' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'mime' => $file->getMimeType()
+            ]);
+
             $content = file_get_contents($file->getPathname());
-            $lines = array_map('str_getcsv', explode("\n", trim($content)));
+            Log::info('Contenido del archivo (primeros 500 caracteres):', [
+                'content' => substr($content, 0, 500)
+            ]);
+
+            // ✅ CORREGIDO: Usar fgetcsv para manejar correctamente el delimitador
+            $handle = fopen($file->getPathname(), 'r');
+            if (!$handle) {
+                throw new \Exception('No se pudo abrir el archivo');
+            }
+
+            // Detectar delimitador (punto y coma o coma)
+            $firstLine = fgets($handle);
+            rewind($handle);
+            
+            $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
+            Log::info('Delimitador detectado', ['delimiter' => $delimiter]);
+
+            $lines = [];
+            while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+                // Limpiar cada campo (eliminar comillas y espacios)
+                $row = array_map(function($field) {
+                    return trim($field, " \t\n\r\0\x0B\"");
+                }, $row);
+                $lines[] = $row;
+            }
+            fclose($handle);
+
+            Log::info('Filas leídas', ['total' => count($lines)]);
 
             if (empty($lines) || count($lines) < 2) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El archivo CSV está vacío o no tiene datos.'
+                    'message' => 'El archivo CSV está vacío o no tiene datos. Se encontraron ' . count($lines) . ' filas.'
                 ], 400);
             }
 
             // Obtener encabezados
             $headers = $lines[0];
-            $data = [];
+            Log::info('Encabezados detectados', ['headers' => $headers]);
 
+            // Normalizar encabezados (eliminar caracteres especiales)
+            $headers = array_map(function($h) {
+                return strtolower(trim($h));
+            }, $headers);
+
+            $data = [];
             // Procesar cada fila
             for ($i = 1; $i < count($lines); $i++) {
-                if (empty($lines[$i]) || count($lines[$i]) < 3) continue;
+                if (empty($lines[$i]) || count($lines[$i]) < 2) continue;
                 
                 $row = [];
                 foreach ($headers as $index => $header) {
@@ -56,8 +97,23 @@ class ImportMedicionesCSVController extends Controller
                 $data[] = $row;
             }
 
+            Log::info('Datos procesados', ['total_filas' => count($data)]);
+
+            // Si no hay datos, devolver error
+            if (empty($data)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontraron datos válidos en el archivo CSV.'
+                ], 400);
+            }
+
             // Analizar los datos
             $report = $this->analyzeData($data);
+
+            Log::info('Reporte generado', [
+                'total' => $report['total'],
+                'valid_data' => count($report['valid_data'])
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -65,6 +121,11 @@ class ImportMedicionesCSVController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Error en previewCSV', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al analizar el archivo: ' . $e->getMessage()
@@ -91,12 +152,28 @@ class ImportMedicionesCSVController extends Controller
         foreach ($data as $index => $row) {
             $rowNumber = $index + 2; // +2 por encabezado y offset
 
-            // Validar lote
-            $lote = isset($row['lote']) ? trim($row['lote']) : '';
-            $medidor = isset($row['medidor']) ? trim($row['medidor']) : '';
-            $consumo = isset($row['consumo']) ? floatval(str_replace(',', '.', trim($row['consumo']))) : null;
-            $fechaMedicion = isset($row['fecha_medicion']) ? trim($row['fecha_medicion']) : '';
-            $foto = isset($row['foto']) ? trim($row['foto']) : null;
+            // Normalizar claves (algunas pueden venir con BOM o espacios)
+            $normalizedRow = [];
+            foreach ($row as $key => $value) {
+                $normalizedRow[trim($key)] = $value;
+            }
+            $row = $normalizedRow;
+
+            // Obtener valores con diferentes nombres de columna posibles
+            $lote = $this->getValue($row, ['lote', 'LOTE', 'lotes', 'LOTES']);
+            $medidor = $this->getValue($row, ['medidor', 'MEDIDOR', 'medidores', 'MEDIDORES']);
+            $consumo = $this->getValue($row, ['consumo', 'CONSUMO', 'valor', 'VALOR', 'valormedido', 'VALORMEDIDO']);
+            $fechaMedicion = $this->getValue($row, ['fecha_medicion', 'FECHA_MEDICION', 'fecha', 'FECHA', 'fechamedicion', 'FECHAMEDICION']);
+            $foto = $this->getValue($row, ['foto', 'FOTO', 'fotos', 'FOTOS']);
+
+            // Log de cada fila para depuración
+            Log::debug("Fila $rowNumber: " . json_encode([
+                'lote' => $lote,
+                'medidor' => $medidor,
+                'consumo' => $consumo,
+                'fecha' => $fechaMedicion,
+                'foto' => $foto
+            ]));
 
             // Validaciones básicas
             if (empty($lote)) {
@@ -109,8 +186,15 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            if ($consumo === null || $consumo < 0) {
-                $report['errors'][] = "Fila $rowNumber: Consumo inválido ($consumo)";
+            // Limpiar consumo (reemplazar coma por punto)
+            if (is_string($consumo)) {
+                $consumo = str_replace(',', '.', $consumo);
+            }
+            
+            $consumoFloat = floatval($consumo);
+            
+            if ($consumoFloat < 0) {
+                $report['errors'][] = "Fila $rowNumber: Consumo negativo ($consumoFloat)";
                 continue;
             }
 
@@ -118,6 +202,9 @@ class ImportMedicionesCSVController extends Controller
                 $report['errors'][] = "Fila $rowNumber: Fecha de medición vacía";
                 continue;
             }
+
+            // Limpiar lote (eliminar ceros a la izquierda)
+            $lote = $this->cleanLote($lote);
 
             // Buscar usuario
             $user = User::where('lote', $lote)->first();
@@ -133,7 +220,7 @@ class ImportMedicionesCSVController extends Controller
             }
 
             if ($user->medidor != $medidor) {
-                $report['errors'][] = "Fila $rowNumber: Medidor $medidor no coincide con el registrado ({$user->medidor})";
+                $report['errors'][] = "Fila $rowNumber: Medidor $medidor no coincide con el registrado ({$user->medidor}) para el lote $lote";
                 continue;
             }
 
@@ -161,10 +248,10 @@ class ImportMedicionesCSVController extends Controller
                 continue;
             }
 
-            // Verificar consumo negativo
+            // Calcular nuevo valor
             if ($lastMeasurement) {
                 $lastValue = $lastMeasurement->valormedido;
-                $newValue = $lastValue + $consumo;
+                $newValue = $lastValue + $consumoFloat;
                 
                 // Verificar si el nuevo valor es menor que el anterior
                 if ($newValue < $lastValue) {
@@ -172,21 +259,21 @@ class ImportMedicionesCSVController extends Controller
                 }
             } else {
                 // Si no hay mediciones previas, el consumo debería ser 0
-                if ($consumo > 0) {
-                    $report['warnings'][] = "Fila $rowNumber: Primera medición del lote $lote con consumo > 0 ($consumo)";
+                if ($consumoFloat > 0) {
+                    $report['warnings'][] = "Fila $rowNumber: Primera medición del lote $lote con consumo > 0 ($consumoFloat)";
                 }
-                $newValue = $consumo;
+                $newValue = $consumoFloat;
             }
 
             // Guardar datos válidos
             $report['valid_data'][] = [
                 'lote' => $lote,
                 'medidor' => $medidor,
-                'consumo' => $consumo,
+                'consumo' => $consumoFloat,
                 'fecha' => $fecha->format('Y-m-d'),
-                'foto' => $foto,
+                'foto' => $foto ?: 'Sin foto',
                 'last_value' => $lastMeasurement ? $lastMeasurement->valormedido : 0,
-                'new_value' => $lastMeasurement ? ($lastMeasurement->valormedido + $consumo) : $consumo,
+                'new_value' => $newValue,
                 'inspector' => 'admin',
                 'pagado' => 'NO'
             ];
@@ -207,11 +294,44 @@ class ImportMedicionesCSVController extends Controller
     }
 
     /**
+     * Obtener valor de un array con múltiples posibles claves
+     */
+    private function getValue($array, $keys)
+    {
+        foreach ($keys as $key) {
+            if (isset($array[$key]) && !empty($array[$key])) {
+                return $array[$key];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Limpiar número de lote
+     */
+    private function cleanLote($lote)
+    {
+        if (empty($lote)) {
+            return '';
+        }
+
+        $lote = trim($lote);
+
+        if (is_numeric($lote)) {
+            $lote = (string) intval($lote);
+        }
+
+        return $lote;
+    }
+
+    /**
      * Importa los datos válidos a la base de datos
      */
     public function importCSV(Request $request)
     {
         try {
+            Log::info('=== INICIO importCSV ===');
+            
             $request->validate([
                 'data' => 'required|array',
                 'data.*.lote' => 'required|string',
@@ -221,6 +341,8 @@ class ImportMedicionesCSVController extends Controller
             ]);
 
             $importData = $request->data;
+            Log::info('Datos a importar', ['total' => count($importData)]);
+
             $successCount = 0;
             $errorCount = 0;
             $errors = [];
@@ -234,6 +356,8 @@ class ImportMedicionesCSVController extends Controller
                     $consumo = floatval($item['consumo']);
                     $fecha = Carbon::parse($item['fecha'])->startOfDay();
                     $foto = isset($item['foto']) ? trim($item['foto']) : 'Sin foto';
+
+                    Log::debug("Importando $lote - $medidor - $consumo - $fecha");
 
                     // Verificar que el lote exista
                     $user = User::where('lote', $lote)->first();
@@ -293,12 +417,21 @@ class ImportMedicionesCSVController extends Controller
                     $successCount++;
 
                 } catch (\Exception $e) {
+                    Log::error('Error en item', [
+                        'index' => $index,
+                        'error' => $e->getMessage()
+                    ]);
                     $errors[] = "Item $index: " . $e->getMessage();
                     $errorCount++;
                 }
             }
 
             DB::commit();
+
+            Log::info('Importación completada', [
+                'success_count' => $successCount,
+                'error_count' => $errorCount
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -310,12 +443,14 @@ class ImportMedicionesCSVController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+            Log::error('Error en importCSV', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error: ' . $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'message' => 'Error: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -326,7 +461,7 @@ class ImportMedicionesCSVController extends Controller
     public function downloadReport(Request $request)
     {
         try {
-            $reportData = $request->input('report_data');
+            $reportData = json_decode($request->input('report_data'), true);
             
             if (!$reportData) {
                 return response()->json([
@@ -399,6 +534,10 @@ class ImportMedicionesCSVController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Error en downloadReport', [
+                'message' => $e->getMessage()
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al generar el informe: ' . $e->getMessage()
