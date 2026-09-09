@@ -249,7 +249,7 @@ class ImportMedicionesCSVController extends Controller
             }
 
             try {
-                $fecha = Carbon::parse($fechaStr)->startOfDay();
+                $fecha = $this->parseFecha($fechaStr);
             } catch (\Exception $e) {
                 $report['errors'][] = "Fila $rowNumber: Fecha inválida ($fechaStr)";
                 continue;
@@ -322,6 +322,20 @@ class ImportMedicionesCSVController extends Controller
         ];
 
         return $report;
+    }
+
+    private function parseFecha($fechaStr)
+    {
+        $fechaStr = trim($fechaStr);
+        $formatos = ['d/m/Y', 'j/n/Y', 'd-m-Y', 'j-n-Y', 'Y-m-d', 'd/m/y', 'j/n/y'];
+        foreach ($formatos as $formato) {
+            try {
+                return Carbon::createFromFormat($formato, $fechaStr)->startOfDay();
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+        return Carbon::parse($fechaStr)->startOfDay();
     }
 
     private function cleanLote($lote)
