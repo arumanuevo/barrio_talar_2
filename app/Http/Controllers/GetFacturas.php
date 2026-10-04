@@ -99,15 +99,7 @@ class GetFacturas extends Controller
 
     public function getFacturasGrafVista(Request $request)
 {
-    $userId = Auth::user()->id;
     $lote = Auth::user()->lote;
-    $facturasLote = Factura::where('lote', $lote)->get();
-    
-    $data = [];
-    foreach ($facturasLote as $factura) {
-        $data['labels'][] = Carbon::parse($factura->fdesde)->format('Y-m-d') . ' - ' . Carbon::parse($factura->fhasta)->format('Y-m-d');
-        $data['sumarios'][] = $factura->sumario;
-    }
 
     $graficoConsumos = ['labels' => [], 'consumos' => []];
     Medicion::where('lote', $lote)->orderBy('id')->get()->each(function ($medicion) use (&$graficoConsumos) {
@@ -115,8 +107,7 @@ class GetFacturas extends Controller
         $graficoConsumos['consumos'][] = (float) $medicion->consumo;
     });
 
-    return view('grafConsumos')->with('data', json_encode($data))
-                               ->with('graficoConsumos', json_encode($graficoConsumos));
+    return view('grafConsumos')->with('graficoConsumos', json_encode($graficoConsumos));
 }
 
 
