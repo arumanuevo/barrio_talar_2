@@ -52,7 +52,7 @@
                             @if ($medicion->foto == "Sin foto")
                               <a>Sin Foto</a>
                             @else
-                              <a class = "fotoMedidor" href="{{ asset('images/'.Str::of(basename($medicion->foto))->endsWith('.png') ? basename($medicion->foto) : basename($medicion->foto).'.png') }}" target="_blank" rel="noopener">Foto</a>
+                              <a class = "fotoMedidor" href="{{ asset('images/'.(Str::endsWith($medicion->foto, '.png') ? basename($medicion->foto) : basename($medicion->foto).'.png')) }}" target="_blank" rel="noopener">Foto</a>
                             @endif
                             </div>
                           </td>
