@@ -108,8 +108,15 @@ class GetFacturas extends Controller
         $data['labels'][] = Carbon::parse($factura->fdesde)->format('Y-m-d') . ' - ' . Carbon::parse($factura->fhasta)->format('Y-m-d');
         $data['sumarios'][] = $factura->sumario;
     }
-    
-    return view('grafConsumos')->with('data', json_encode($data));
+
+    $graficoConsumos = ['labels' => [], 'consumos' => []];
+    Medicion::where('lote', $lote)->orderBy('id')->get()->each(function ($medicion) use (&$graficoConsumos) {
+        $graficoConsumos['labels'][] = (string) $medicion->fecha;
+        $graficoConsumos['consumos'][] = (float) $medicion->consumo;
+    });
+
+    return view('grafConsumos')->with('data', json_encode($data))
+                               ->with('graficoConsumos', json_encode($graficoConsumos));
 }
 
 
