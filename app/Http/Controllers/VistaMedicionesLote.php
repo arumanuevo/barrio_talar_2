@@ -29,9 +29,17 @@ class VistaMedicionesLote extends Controller
 
             // Paginamos las mediciones
             $mediciones = Medicion::where('lote', $lote)
+                                  ->orderBy('id')
                                   ->paginate(12); // Puedes ajustar el número 15 a la cantidad de elementos por página que desees
 
-            return view('listaMedicionesLote')->with('mediciones', $mediciones);
+            $grafico = ['labels' => [], 'consumos' => []];
+            foreach ($mediciones as $medicion) {
+                $grafico['labels'][] = (string) $medicion->fecha;
+                $grafico['consumos'][] = (float) $medicion->consumo;
+            }
+
+            return view('listaMedicionesLote')->with('mediciones', $mediciones)
+                                              ->with('grafico', json_encode($grafico));
         }
 
 }
