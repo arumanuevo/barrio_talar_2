@@ -394,11 +394,11 @@ return [
                     'url' => 'getTodasFacturas',
                     'can' => 'administrador',
                 ],
-                [
+                /*[
                     'text' => 'Facturas',
                     'url' => 'getFacturas',
                     'can' => 'usuario',
-                ],
+                ],*/
               
                 [
                     'text' => 'Mediciones x Lote',
