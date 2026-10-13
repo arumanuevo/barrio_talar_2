@@ -64,7 +64,7 @@ return [
     */
 
     'logo' => '<b>Barrio</b> TDL2',
-    'logo_img' => 'images/Logo Talar del Lago 1.svg',
+    'logo_img' => 'images/Logo Talar del Lago 2.svg',
     'logo_img_class' => 'brand-image img-circle elevation-3',
     'logo_img_xl' => null,
     'logo_img_xl_class' => 'brand-image-xs',
@@ -86,7 +86,7 @@ return [
     'auth_logo' => [
         'enabled' => false,
         'img' => [
-            'path' => 'images/Logo Talar del Lago 1.svg',
+            'path' => 'images/Logo Talar del Lago 2.svg',
             'alt' => 'Auth Logo',
             'class' => '',
             'width' => 50,
